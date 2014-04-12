@@ -2,6 +2,7 @@
 #include "leveldb/walker.hpp"
 #include "leveldb/cover_walker.hpp"
 #include "leveldb/memory_db.hpp"
+#include "leveldb/txn_db.hpp"
 
 #include <gtest/gtest.h>
 
@@ -218,6 +219,51 @@ TEST(Simple, walkCover)
     EXPECT_EQ( "c", w.key() );
     EXPECT_EQ( "3", w.value() );
 
+}
+
+TEST(Simple, transaction)
+{
+    leveldb::MemoryDB db {
+        { "b", "1" },
+        { "a", "2" },
+        { "c", "3" },
+    };
+
+    leveldb::TxnDB<leveldb::MemoryDB> txn(db);
+    string v;
+
+    ASSERT_OK( txn.Get("a", v) );
+    EXPECT_EQ( "2", v );
+
+    ASSERT_OK( txn.Get("b", v) );
+    EXPECT_EQ( "1", v );
+
+    ASSERT_OK( txn.Put("a", "4") );
+    ASSERT_OK( txn.Get("a", v) );
+    EXPECT_EQ( "4", v );
+    ASSERT_OK( db.Get("a", v) );
+    EXPECT_EQ( "2", v );
+
+    ASSERT_OK( txn.Delete("b") );
+    EXPECT_FAIL( txn.Get("b", v) );
+    ASSERT_OK( db.Get("b", v) );
+    EXPECT_EQ( "1", v );
+
+    // flush changes to DB
+    ASSERT_OK( txn.commit() );
+
+    ASSERT_OK( db.Get("a", v) );
+    EXPECT_EQ( "4", v );
+    ASSERT_OK( txn.Get("a", v) );
+    EXPECT_EQ( "4", v );
+
+    EXPECT_FAIL( db.Get("b", v) );
+    EXPECT_FAIL( txn.Get("b", v) );
+
+    // ensure that old values from Txn doesn't shadow underlying databse
+    ASSERT_OK( db.Put("a", "5") );
+    ASSERT_OK( txn.Get("a", v) );
+    EXPECT_EQ( "5", v );
 }
 
 TEST(Simple, DISABLED_dummy)

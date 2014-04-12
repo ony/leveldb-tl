@@ -37,6 +37,9 @@ namespace leveldb
             else db.reset();
             return s;
         }
+
+        Status Write(WriteBatch &updates)
+        { return db->Write(writeOptions, &updates); }
     };
 
     // handle BottomDB as an AnyDB
