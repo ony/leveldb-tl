@@ -1,6 +1,6 @@
 #include "leveldb/bottom_db.hpp"
 #include "leveldb/walker.hpp"
-#include "leveldb/merge_walker.hpp"
+#include "leveldb/cover_walker.hpp"
 #include "leveldb/memory_db.hpp"
 
 #include <gtest/gtest.h>
@@ -27,6 +27,23 @@ TEST(Simple, memoryDB)
     ASSERT_TRUE( w.Valid() );
     EXPECT_OK( w.status() );
     EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "2", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "1", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
+    EXPECT_FALSE( w.Valid() );
+    EXPECT_FAIL( w.status() );
 
     leveldb::AnyDB &db = mem;
 
@@ -37,6 +54,8 @@ TEST(Simple, memoryDB)
     EXPECT_OK( w2.status() );
     EXPECT_EQ( "a", w2.key() );
 
+    w2.Prev();
+    EXPECT_FALSE( w2.Valid() );
 }
 
 TEST(Simple, walkMemoryDB)
@@ -147,6 +166,58 @@ TEST(Simple, walkSubtract)
 
     w.Next();
     EXPECT_FALSE( w.Valid() );
+}
+
+TEST(Simple, walkCover)
+{
+    leveldb::MemoryDB mem1 {
+        { "b", "1" },
+        { "a", "2" },
+        { "c", "3" },
+    };
+
+    leveldb::MemoryDB mem2 {
+        { "b", "4" },
+        { "d", "5" },
+    };
+
+    auto w = leveldb::cover(mem1, mem2);
+
+    w.SeekToFirst();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "2", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "4", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Prev();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "4", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "d", w.key() );
+    EXPECT_EQ( "5", w.value() );
+
+    w.Prev();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
 }
 
 TEST(Simple, DISABLED_dummy)

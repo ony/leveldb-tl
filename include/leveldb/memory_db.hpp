@@ -54,7 +54,10 @@ namespace leveldb
             { impl = rows->lower_bound(target.ToString()); }
 
             void Next() { ++impl; }
-            void Prev() { --impl; }
+            void Prev() {
+                if (impl == rows->begin()) impl = rows->end();
+                else --impl;
+            }
 
             Slice key() const { return impl->first; }
             Slice value() const { return impl->second; }

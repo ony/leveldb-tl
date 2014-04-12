@@ -4,13 +4,6 @@
 
 namespace leveldb
 {
-    template <typename Base>
-    struct Subtract
-    {
-        Base &base;
-        Whiteout &whiteout; // subset of base
-    };
-
     enum class Order : int { LT = -1, EQ = 0, GT = 1 };
 
     constexpr Order compare(int x) // compare with zero
@@ -18,6 +11,13 @@ namespace leveldb
 
     Order compare(const Slice &a, const Slice &b)
     { return compare(a.compare(b)); }
+
+    template <typename Base>
+    struct Subtract
+    {
+        Base &base;
+        Whiteout &whiteout; // subset of base
+    };
 
     template <typename Base>
     class Walker<Subtract<Base>>
