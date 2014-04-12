@@ -4,6 +4,14 @@ LevelDB Template Library
 This project is intended for using in programs like browsers, small dbms like
 http://github.com/openwebos/db8 .
 
+Features
+--------
+- abstract AnyDB
+- in-memory AnyDB
+- transactions layer
+
+See tests/simple.cpp for samples of usage
+
 
 Credits
 -------

@@ -28,9 +28,11 @@ namespace leveldb
         void SkipNext()
         {
             if (!w_whiteout.Valid())
-            { w_whiteout.Seek(key()); }
-            if (!w_whiteout.Valid())
-            { return; }
+            {
+                w_whiteout.Seek(key());
+                if (!w_whiteout.Valid())
+                { return; }
+            }
 
             for (;;)
             {
@@ -54,9 +56,11 @@ namespace leveldb
         void SkipPrev()
         {
             if (!w_whiteout.Valid())
-            { w_whiteout.Seek(key()); }
-            if (!w_whiteout.Valid())
-            { return; }
+            {
+                w_whiteout.Seek(key());
+                if (!w_whiteout.Valid())
+                { return; }
+            }
 
             for (;;)
             {
@@ -86,6 +90,7 @@ namespace leveldb
         bool Valid() const { return w_base.Valid(); }
         Slice key() const { return w_base.key(); }
         Slice value() const { return w_base.value(); }
+        Status status() const { return w_base.status(); }
 
         void SeekToFirst()
         {
@@ -105,6 +110,15 @@ namespace leveldb
             SkipPrev();
         }
 
+        void Seek(const Slice &target)
+        {
+            w_base.Seek(target);
+            if (!Valid()) return;
+
+            w_whiteout.Seek(target);
+            SkipNext();
+        }
+
         void Next()
         {
             w_base.Next();
@@ -118,10 +132,7 @@ namespace leveldb
         }
     };
 
-    Walker<Subtract<AnyDB>> subtract(AnyDB &base, Whiteout &whiteout)
-    { return Walker<Subtract<AnyDB>>({base, whiteout}); }
-
     template <typename Base>
-    Walker<Subtract<Base>> subtract(Base &base, Whiteout &whiteout)
-    { return Walker<Subtract<Base>>({base, whiteout}); }
+    Subtract<Base> subtract(Base &base, Whiteout &whiteout)
+    { return {base, whiteout}; }
 }

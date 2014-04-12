@@ -12,6 +12,13 @@ namespace leveldb
     };
 
     template <typename Base, typename Overlay>
+    struct Cover<Subtract<Base>, Overlay>
+    {
+        Subtract<Base> base;
+        Overlay &overlay;
+    };
+
+    template <typename Base, typename Overlay>
     class Walker<Cover<Base, Overlay>>
     {
         Walker<Base> i;
@@ -68,6 +75,7 @@ namespace leveldb
         bool Valid() const { return useOverlay() ? j.Valid() : i.Valid(); }
         Slice key() const { return useOverlay() ? j.key() : i.key(); }
         Slice value() const { return useOverlay() ? j.value() : i.value(); }
+        Status status() const { return useOverlay() ? j.status() : i.status(); }
 
         void Seek(const Slice &target)
         {
@@ -160,6 +168,6 @@ namespace leveldb
     };
 
     template <typename Base, typename Overlay>
-    Walker<Cover<Base, Overlay>> cover(Base &base, Overlay &overlay)
-    { return Walker<Cover<Base, Overlay>>({base, overlay}); }
+    Cover<Base, Overlay> cover(Base &base, Overlay &overlay)
+    { return Cover<Base, Overlay>({base, overlay}); }
 }
