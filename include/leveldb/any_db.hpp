@@ -45,4 +45,18 @@ namespace leveldb
 
         Status status() const override { return impl.status(); }
     };
+
+    template <typename T>
+    std::unique_ptr<AsIterator<T>> asIterator(const T &origin)
+    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(origin)); }
+
+    template <typename T>
+    std::unique_ptr<AsIterator<T>> asIterator(T &&origin)
+    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(origin)); }
+
+    /*
+    template <typename T, typename... Args>
+    std::unique_ptr<AsIterator<T>> asIterator(Args... args)
+    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(args...)); }
+    */
 }

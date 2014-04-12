@@ -92,7 +92,7 @@ namespace leveldb
             w_base.SeekToFirst();
             if (!Valid()) return;
 
-            w_whiteout.Seek(key());
+            w_whiteout.SeekToFirst();
             SkipNext();
         }
 
@@ -101,7 +101,7 @@ namespace leveldb
             w_base.SeekToLast();
             if (!Valid()) return;
 
-            w_whiteout.Seek(key());
+            w_whiteout.SeekToLast();
             SkipPrev();
         }
 
@@ -120,4 +120,8 @@ namespace leveldb
 
     Walker<Subtract<AnyDB>> subtract(AnyDB &base, Whiteout &whiteout)
     { return Walker<Subtract<AnyDB>>({base, whiteout}); }
+
+    template <typename Base>
+    Walker<Subtract<Base>> subtract(Base &base, Whiteout &whiteout)
+    { return Walker<Subtract<Base>>({base, whiteout}); }
 }

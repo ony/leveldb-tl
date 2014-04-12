@@ -32,7 +32,7 @@ namespace leveldb
             return Status::OK();
         }
 
-        class IteratorType final : public Iterator
+        class IteratorType final
         {
             friend class MemoryDB;
 
@@ -43,29 +43,28 @@ namespace leveldb
             IteratorType(MemoryDB &origin) : rows(&origin)
             {}
 
-            bool Valid() const override { return impl != rows->end(); }
+            bool Valid() const { return impl != rows->end(); }
 
-            void SeekToFirst() override { impl = rows->begin(); }
+            void SeekToFirst() { impl = rows->begin(); }
 
-            void SeekToLast() override
+            void SeekToLast()
             { impl = rows->end(); if (impl != rows->begin()) --impl; }
 
-            void Seek(const Slice &target) override
+            void Seek(const Slice &target)
             { impl = rows->lower_bound(target.ToString()); }
 
-            void Next() override { ++impl; }
-            void Prev() override { --impl; }
+            void Next() { ++impl; }
+            void Prev() { --impl; }
 
-            Slice key() const override { return impl->first; }
-            Slice value() const override { return impl->second; }
+            Slice key() const { return impl->first; }
+            Slice value() const { return impl->second; }
 
-            Status status() const override
+            Status status() const
             { return Valid() ? Status::OK() : Status::NotFound("invalid iterator"); }
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
-        { return std::unique_ptr<IteratorType>(new IteratorType(*this)); }
-        //{ return std::unique_ptr<IteratorType>(new AsIterator<IteratorType>(IteratorType(*this))); }
+        { return asIterator(IteratorType(*this)); }
     };
 }
 

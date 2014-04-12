@@ -5,6 +5,7 @@
 #include <leveldb/db.h>
 
 #include <leveldb/any_db.hpp>
+#include <leveldb/walker.hpp>
 
 namespace leveldb
 {
@@ -36,5 +37,13 @@ namespace leveldb
             else db.reset();
             return s;
         }
+    };
+
+    // handle BottomDB as an AnyDB
+    template<>
+    class Walker<BottomDB> : public Walker<AnyDB>
+    {
+    public:
+        using Walker<AnyDB>::Walker;
     };
 }

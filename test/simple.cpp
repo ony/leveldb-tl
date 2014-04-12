@@ -22,11 +22,21 @@ TEST(Simple, memoryDB)
     EXPECT_OK( mem.Get("b", v) );
     EXPECT_EQ( "1", v );
 
-    leveldb::Walker<leveldb::MemoryDB> w { mem };
+    auto w = leveldb::walker(mem);
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
     EXPECT_OK( w.status() );
     EXPECT_EQ( "a", w.key() );
+
+    leveldb::AnyDB &db = mem;
+
+    auto w3 = leveldb::walker(db);
+    auto w2 = std::move(w3);
+    w2.SeekToFirst();
+    ASSERT_TRUE( w2.Valid() );
+    EXPECT_OK( w2.status() );
+    EXPECT_EQ( "a", w2.key() );
+
 }
 
 TEST(Simple, walkMemoryDB)
@@ -37,8 +47,7 @@ TEST(Simple, walkMemoryDB)
         { "c", "3" },
     };
 
-    auto w = leveldb::walker(static_cast<leveldb::AnyDB&>(mem));
-    //auto w { leveldb::walker(mem) };
+    auto w = leveldb::walker(mem);
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
@@ -76,6 +85,7 @@ TEST(Simple, walkWhiteout)
     leveldb::Whiteout wh { "b", "a", "c" };
 
     auto w = leveldb::walker(wh);
+    auto x = w;
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
