@@ -3,6 +3,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 set(TESTS
     simple
     test_cover
+    test_txn
+    test_whiteout
     )
 
 foreach(test ${TESTS})

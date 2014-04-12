@@ -38,8 +38,6 @@ namespace leveldb
 
         class IteratorType final
         {
-            friend class MemoryDB;
-
             MemoryDB *rows;
             MemoryDB::iterator impl;
 

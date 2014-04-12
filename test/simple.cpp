@@ -9,6 +9,8 @@
 #include "util.hpp"
 
 using namespace std;
+using leveldb::walker;
+using leveldb::subtract;
 
 TEST(Simple, memoryDB)
 {
@@ -144,7 +146,7 @@ TEST(Simple, walkSubtract)
 
     leveldb::Whiteout wh { "b" };
 
-    auto w = leveldb::subtract(mem, wh);
+    auto w = walker(subtract(mem, wh));
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
@@ -182,7 +184,7 @@ TEST(Simple, walkCover)
         { "d", "5" },
     };
 
-    auto w = leveldb::cover(mem1, mem2);
+    auto w = walker(cover(mem1, mem2));
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
@@ -229,7 +231,8 @@ TEST(Simple, transaction)
         { "c", "3" },
     };
 
-    leveldb::TxnDB<leveldb::MemoryDB> txn(db);
+    using TxnType = leveldb::TxnDB<leveldb::MemoryDB>;
+    TxnType txn(db);
     string v;
 
     ASSERT_OK( txn.Get("a", v) );
@@ -248,6 +251,22 @@ TEST(Simple, transaction)
     EXPECT_FAIL( txn.Get("b", v) );
     ASSERT_OK( db.Get("b", v) );
     EXPECT_EQ( "1", v );
+
+    // check iterator
+    TxnType::IteratorType i(txn);
+
+    i.SeekToFirst();
+    ASSERT_TRUE( i.Valid() );
+    EXPECT_EQ( "a", i.key() );
+    EXPECT_EQ( "4", i.value() );
+
+    i.Next();
+    ASSERT_TRUE( i.Valid() );
+    EXPECT_EQ( "c", i.key() );
+    EXPECT_EQ( "3", i.value() );
+
+    i.Next();
+    EXPECT_FALSE( i.Valid() );
 
     // flush changes to DB
     ASSERT_OK( txn.commit() );
@@ -280,7 +299,7 @@ TEST(Simple, DISABLED_dummy)
     leveldb::Whiteout wh { "b" };
     leveldb::MemoryDB mem { { "d", "5" } };
 
-    auto w = leveldb::subtract(db, wh);
+    auto w = walker(subtract(db, wh));
 
     w.SeekToFirst();
     EXPECT_TRUE( w.Valid() );

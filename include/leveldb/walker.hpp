@@ -39,6 +39,10 @@ namespace leveldb
     Walker<T> walker(T &collection)
     { return Walker<T>(collection); }
 
+    template <typename T>
+    Walker<T> walker(const T &collection)
+    { return Walker<T>(collection); }
+
     template <>
     class Walker<AnyDB>
     {
@@ -81,7 +85,10 @@ namespace leveldb
         void Seek(const Slice &target) { impl = rows.lower_bound(target.ToString()); }
 
         void Next() { ++impl; }
-        void Prev() { --impl; }
+        void Prev() {
+            if (impl == rows.begin()) impl = rows.end();
+            else --impl;
+        }
 
         Slice key() const { return *impl; }
 

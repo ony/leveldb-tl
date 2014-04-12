@@ -1,4 +1,4 @@
-#include "leveldb/cover_walker.hpp"
+#include "leveldb/subtract_walker.hpp"
 #include "leveldb/memory_db.hpp"
 
 #include <gtest/gtest.h>
@@ -7,10 +7,13 @@
 
 using namespace std;
 
-class TestCover : public ::testing::TestWithParam<string>
+class TestWhiteout : public ::testing::TestWithParam<string>
 {
 protected:
-    leveldb::MemoryDB a, b;
+    using Base = leveldb::MemoryDB;
+    Base a;
+    leveldb::Whiteout b;
+    leveldb::Walker<leveldb::Subtract<Base>> w {{a, b}};
     vector<pair<string,string>> e; // expected key/val
 private:
     void SetUp()
@@ -22,20 +25,48 @@ private:
         {
             switch (c)
             {
-            case '<': a.Put(k, v); break;
-            case '>': b.Put(k, v); break;
-            case '-': a.Put(k, v); ++v[0]; b.Put(k, v); break;
+            case '.': a.Put(k, v); e.emplace_back(k, v); break;
+            case 'x': b.emplace(k); break;
+            case 'X': a.Put(k, v); b.emplace(k); break;
             }
-            e.emplace_back(k,v);
 
             ++k[0]; ++v[0];
         }
     }
 };
 
-TEST_P(TestCover, forward)
+namespace {
+    template <size_t n>
+    const vector<string> &genCases()
+    {
+        static vector<string> ys;
+        if (!ys.empty()) return ys;
+
+        for (auto x : genCases<n-1>())
+        {
+            for (char c : { '.', 'x', 'X' })
+                ys.push_back(x + c);
+        }
+
+        return ys;
+    }
+
+    template<>
+    const vector<string> &genCases<0>()
+    {
+        static const vector<string> ys { string{} };
+        return ys;
+    }
+}
+
+INSTANTIATE_TEST_CASE_P(Comb0, TestWhiteout, ::testing::ValuesIn(genCases<0>()));
+INSTANTIATE_TEST_CASE_P(Comb1, TestWhiteout, ::testing::ValuesIn(genCases<1>()));
+INSTANTIATE_TEST_CASE_P(Comb2, TestWhiteout, ::testing::ValuesIn(genCases<2>()));
+INSTANTIATE_TEST_CASE_P(Comb3, TestWhiteout, ::testing::ValuesIn(genCases<3>()));
+INSTANTIATE_TEST_CASE_P(Comb8, TestWhiteout, ::testing::ValuesIn(genCases<5>()));
+
+TEST_P(TestWhiteout, forward)
 {
-    auto w = walker(cover(a, b));
     w.SeekToFirst();
 
     for (const auto &p : e)
@@ -51,9 +82,8 @@ TEST_P(TestCover, forward)
         << "Walker still points to " << w.key().ToString() << "=" << w.value().ToString();
 }
 
-TEST_P(TestCover, backward)
+TEST_P(TestWhiteout, backward)
 {
-    auto w = walker(cover(a, b));
     w.SeekToLast();
 
     for (auto i = e.rbegin(); i != e.rend(); ++i)
@@ -69,11 +99,9 @@ TEST_P(TestCover, backward)
         << "Walker still points to " << w.key().ToString() << "=" << w.value().ToString() << "\n";
 }
 
-TEST_P(TestCover, seek_first_prev)
+TEST_P(TestWhiteout, seek_first_prev)
 {
     if (e.empty()) return;
-
-    auto w = walker(cover(a, b));
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
@@ -85,11 +113,9 @@ TEST_P(TestCover, seek_first_prev)
         << "Walker still points to " << w.key().ToString() << "=" << w.value().ToString() << "\n";
 }
 
-TEST_P(TestCover, seek_last_next)
+TEST_P(TestWhiteout, seek_last_next)
 {
     if (e.empty()) return;
-
-    auto w = walker(cover(a, b));
 
     w.SeekToLast();
     ASSERT_TRUE( w.Valid() );
@@ -101,11 +127,9 @@ TEST_P(TestCover, seek_last_next)
         << "Walker still points to " << w.key().ToString() << "=" << w.value().ToString() << "\n";
 }
 
-TEST_P(TestCover, sowtooth_forward)
+TEST_P(TestWhiteout, sowtooth_forward)
 {
     if (e.size() < 2) return;
-
-    auto w = walker(cover(a, b));
 
     auto i = e.begin();
     w.SeekToFirst();
@@ -132,11 +156,9 @@ TEST_P(TestCover, sowtooth_forward)
         << "Walker still points to " << w.key().ToString() << "=" << w.value().ToString() << "\n";
 }
 
-TEST_P(TestCover, sowtooth_backward)
+TEST_P(TestWhiteout, sowtooth_backward)
 {
     if (e.size() < 2) return;
-
-    auto w = walker(cover(a, b));
 
     auto i = e.rbegin();
     w.SeekToLast();
@@ -163,11 +185,10 @@ TEST_P(TestCover, sowtooth_backward)
         << "Walker still points to " << w.key().ToString() << "=" << w.value().ToString() << "\n";
 }
 
-TEST_P(TestCover, seek_for_first)
+TEST_P(TestWhiteout, seek_for_first)
 {
     if (e.empty()) return;
 
-    auto w = walker(cover(a, b));
     const auto &p = e.front();
 
     w.Seek(p.first);
@@ -176,11 +197,10 @@ TEST_P(TestCover, seek_for_first)
     EXPECT_EQ( p.second, w.value() );
 }
 
-TEST_P(TestCover, seek_for_last)
+TEST_P(TestWhiteout, seek_for_last)
 {
     if (e.empty()) return;
 
-    auto w = walker(cover(a, b));
     const auto &p = e.back();
 
     w.Seek(p.first);
@@ -189,11 +209,10 @@ TEST_P(TestCover, seek_for_last)
     EXPECT_EQ( p.second, w.value() );
 }
 
-TEST_P(TestCover, seek_for_third)
+TEST_P(TestWhiteout, seek_for_third)
 {
     if (e.size() < 3) return;
 
-    auto w = walker(cover(a, b));
     const auto &p = e[2];
 
     w.Seek(p.first);
@@ -202,12 +221,12 @@ TEST_P(TestCover, seek_for_third)
     EXPECT_EQ( p.second, w.value() );
 }
 
-TEST_P(TestCover, seek_for_fuzzy_fourth)
+TEST_P(TestWhiteout, seek_for_fuzzy_fourth)
 {
     if (e.size() < 3) return;
 
-    auto w = walker(cover(a, b));
-    w.Seek("c1"); // something after 3rd ("c")
+    // "c" might be deleted, build from e[2]
+    w.Seek(e[2].first + "1");
 
     if (e.size() == 3)
     {
@@ -222,9 +241,8 @@ TEST_P(TestCover, seek_for_fuzzy_fourth)
     }
 }
 
-TEST_P(TestCover, seek_for_fuzzy_first)
+TEST_P(TestWhiteout, seek_for_fuzzy_first)
 {
-    auto w = walker(cover(a, b));
     w.Seek("0"); // something before first ("a")
 
     if (e.empty())
@@ -240,35 +258,9 @@ TEST_P(TestCover, seek_for_fuzzy_first)
     }
 }
 
-namespace {
-    template <size_t n>
-    const vector<string> &genCases()
-    {
-        static vector<string> ys;
-        if (!ys.empty()) return ys;
+TEST_P(TestWhiteout, seek_for_fuzzy_max)
+{
+    w.Seek("zzz"); // something after last entry
 
-        for (auto x : genCases<n-1>())
-        {
-            for (char c : { '<', '>', '-' })
-                ys.push_back(x + c);
-        }
-
-        return ys;
-    }
-
-    template<>
-    const vector<string> &genCases<0>()
-    {
-        static const vector<string> ys { string{} };
-        return ys;
-    }
+    EXPECT_FALSE( w.Valid() );
 }
-
-//INSTANTIATE_TEST_CASE_P(Custom, TestCover, ::testing::Values("-","--"));
-//INSTANTIATE_TEST_CASE_P(Custom, TestCover, ::testing::Values("-<", "->", "<-", ">-"));
-
-INSTANTIATE_TEST_CASE_P(Comb0, TestCover, ::testing::ValuesIn(genCases<0>()));
-INSTANTIATE_TEST_CASE_P(Comb1, TestCover, ::testing::ValuesIn(genCases<1>()));
-INSTANTIATE_TEST_CASE_P(Comb2, TestCover, ::testing::ValuesIn(genCases<2>()));
-INSTANTIATE_TEST_CASE_P(Comb3, TestCover, ::testing::ValuesIn(genCases<3>()));
-INSTANTIATE_TEST_CASE_P(Comb8, TestCover, ::testing::ValuesIn(genCases<5>()));

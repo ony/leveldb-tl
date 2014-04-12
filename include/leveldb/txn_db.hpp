@@ -2,7 +2,7 @@
 
 #include <leveldb/any_db.hpp>
 #include <leveldb/memory_db.hpp>
-#include <leveldb/walker.hpp>
+#include <leveldb/cover_walker.hpp>
 
 namespace leveldb
 {
@@ -12,6 +12,8 @@ namespace leveldb
         Base &base;
         MemoryDB overlay;
         Whiteout whiteout;
+
+        using Collection = Cover<Subtract<Base>, MemoryDB>;
 
     public:
         TxnDB(Base &origin) : base(origin)
@@ -38,8 +40,16 @@ namespace leveldb
             return overlay.Delete(key);
         }
 
+        class IteratorType final : public Walker<Collection>
+        {
+        public:
+            IteratorType(TxnDB<Base> &txn) :
+                Walker<Collection>({{txn.base, txn.whiteout}, txn.overlay})
+            {}
+        };
+
         std::unique_ptr<Iterator> NewIterator() noexcept override
-        { return nullptr; } // TODO: implement
+        { return asIterator(IteratorType(*this)); }
 
         Status commit()
         {
@@ -55,4 +65,8 @@ namespace leveldb
             return s;
         }
     };
+
+    template <typename Base>
+    TxnDB<Base> transaction(Base &base)
+    { return base; }
 }
