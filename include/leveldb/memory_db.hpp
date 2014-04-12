@@ -3,6 +3,8 @@
 #include <map>
 #include <string>
 
+#include <leveldb/write_batch.h>
+
 #include <leveldb/any_db.hpp>
 
 namespace leveldb
@@ -22,7 +24,9 @@ namespace leveldb
 
         Status Put(const Slice &key, const Slice &value) noexcept override
         {
-            (void) emplace(key.ToString(), value.ToString());
+            auto v = value.ToString();
+            auto r = emplace(key.ToString(), v);
+            if (!r.second) r.first->second = v; // overwrite
             return Status::OK();
         }
 
@@ -68,6 +72,21 @@ namespace leveldb
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
         { return asIterator(IteratorType(*this)); }
+
+        Status Write(WriteBatch &updates)
+        {
+            struct UpdateHandler : WriteBatch::Handler
+            {
+                MemoryDB *db;
+
+                void Put(const Slice& key, const Slice& value) override
+                { db->Put(key, value); }
+                void Delete(const Slice& key) override
+                { db->Delete(key); }
+            } handler;
+            handler.db = this;
+            return updates.Iterate(&handler);
+        }
     };
 }
 
