@@ -15,8 +15,7 @@ class TestSandwich : public ::testing::TestWithParam<string>
 protected:
     MemoryDB db;
 
-    // SandwichDB<TxnDB<MemoryDB>> sdb { db };
-    SandwichDB<MemoryDB> sdb { db };
+    SandwichDB<TxnDB<MemoryDB>> sdb { db };
 
     using Expectation = vector<pair<string,string>>;
     vector<Expectation> es; // expected key/val for each part
