@@ -318,6 +318,26 @@ TEST(Simple, sequence)
     EXPECT_EQ( 5, x );
 }
 
+TEST(Simple, sandwich)
+{
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb;
+
+    auto a = sdb.use("alpha");
+    ASSERT_TRUE( a.Valid() );
+    auto b = sdb.use("beta");
+    ASSERT_TRUE( b.Valid() );
+
+    string v;
+
+    EXPECT_FAIL( a.Get("a", v) );
+    EXPECT_FAIL( b.Get("a", v) );
+    EXPECT_OK( a.Put("a", "1") );
+
+    ASSERT_OK( a.Get("a", v) );
+    EXPECT_EQ( "1", v );
+    EXPECT_FAIL( b.Get("a", v) );
+}
+
 TEST(Simple, DISABLED_dummy)
 {
     leveldb::BottomDB db;

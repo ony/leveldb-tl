@@ -78,4 +78,104 @@ namespace leveldb
             return base.Put(key, Slice(v, sizeof(v)));
         }
     };
+
+    template <typename Base, typename Prefix = short>
+    class SandwichDB final
+    {
+    public:
+        class Part;
+
+    private:
+        Base base;
+        Part meta { *this };
+        Sequence<Prefix> seq { meta, Slice() };
+
+    public:
+        template <typename... Args>
+        SandwichDB(Args... args) : base(args...)
+        {}
+
+        Base *operator->() { return &base; }
+
+        // Note: this should be a pretty rare call
+        Part use(const Slice &name)
+        {
+            Status s;
+            assert( !name.empty() );
+
+            Prefix p;
+
+            std::string v;
+            s = meta.Get(name, v);
+            if (s.ok())
+            {
+                if (v.size() != sizeof(Prefix)) // corrupted?
+                { return Part(); }
+                memcpy(&p, v.data(), sizeof(Prefix));
+            }
+            else if (s.IsNotFound())
+            {
+                s = seq.Next(p);
+                if (s.ok() && p == 0) s = seq.Next(p); // skip meta part
+                if (s.ok())
+                { s = meta.Put(name, Slice(reinterpret_cast<const char*>(&p), sizeof(p))); }
+            }
+            if (s.ok()) return Part(*this, p);
+            else return Part();
+        }
+    };
+
+    template <typename Base, typename Prefix = short>
+    class SandwichDB<Base, Prefix>::Part final : public AnyDB
+    {
+
+        SandwichDB *sandwich;
+        Prefix prefix;
+
+        friend class SandwichDB<Base, Prefix>;
+
+        Part(SandwichDB &origin, Prefix prefix = 0) :
+            sandwich(&origin), prefix(prefix)
+        {}
+    public:
+        Part() : sandwich(nullptr) {}
+
+        bool Valid() const { return sandwich; }
+
+        Status Get(const Slice &key, std::string &value) noexcept override
+        {
+            assert( Valid() );
+            char buf[sizeof(prefix) + key.size()];
+            (void) memcpy(buf, &prefix, sizeof(prefix));
+            (void) memcpy(buf + sizeof(prefix), key.data(), key.size());
+            return sandwich->base.Get(Slice(buf, sizeof(buf)), value);
+        }
+
+        Status Put(const Slice &key, const Slice &value) noexcept override
+        {
+            assert( Valid() );
+            char buf[sizeof(prefix) + key.size()];
+            (void) memcpy(buf, &prefix, sizeof(prefix));
+            (void) memcpy(buf + sizeof(prefix), key.data(), key.size());
+            return sandwich->base.Put(Slice(buf, sizeof(buf)), value);
+        }
+        Status Delete(const Slice &key) noexcept override
+        {
+            assert( Valid() );
+            char buf[sizeof(prefix) + key.size()];
+            (void) memcpy(buf, &prefix, sizeof(prefix));
+            (void) memcpy(buf + sizeof(prefix), key.data(), key.size());
+            return sandwich->base.Delete(Slice(buf, sizeof(buf)));
+        }
+        std::unique_ptr<Iterator> NewIterator() noexcept override
+        {
+            assert( Valid() );
+            return nullptr;
+        }
+        Status Write(WriteBatch &updates)
+        {
+            assert( Valid() );
+            return Status::NotSupported("TODO: WriteBatch");
+        }
+    };
 }
