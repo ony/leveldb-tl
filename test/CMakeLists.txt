@@ -49,3 +49,7 @@ if(NOT FAST_CHECK)
 endif()
 
 add_dependencies(depend-check ${TESTS})
+
+# also lets check symbols duplications by linking all tests together
+add_executable(all-tests ${TESTS}.cpp)
+target_link_libraries(all-tests ${GTEST_BOTH_LIBRARIES} ${LevelDB_LIBRARIES})

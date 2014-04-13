@@ -170,6 +170,6 @@ namespace leveldb
     };
 
     template <typename Base, typename Overlay>
-    Cover<Base, Overlay> cover(Base &base, Overlay &overlay)
+    constexpr Cover<Base, Overlay> cover(Base &base, Overlay &overlay)
     { return Cover<Base, Overlay>({base, overlay}); }
 }

@@ -69,6 +69,6 @@ namespace leveldb
     };
 
     template <typename Base>
-    TxnDB<Base> transaction(Base &base)
+    constexpr TxnDB<Base> transaction(Base &base)
     { return base; }
 }
