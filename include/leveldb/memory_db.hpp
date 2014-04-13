@@ -11,8 +11,18 @@ namespace leveldb
 {
     class MemoryDB final : public std::map<std::string, std::string>, public AnyDB
     {
+        typedef std::map<std::string, std::string> Impl;
     public:
-        using std::map<std::string, std::string>::map;
+        // gcc 4.8: using std::map<std::string, std::string>::map;
+        template <typename... Args>
+        MemoryDB(Args &&... args) :
+            Impl(std::forward<Args>(args)...)
+        {}
+        MemoryDB(std::initializer_list<Impl::value_type> items) :
+            Impl(items)
+        {}
+
+        ~MemoryDB() noexcept override = default;
 
         Status Get(const Slice &key, std::string &value) noexcept override
         {
@@ -25,7 +35,8 @@ namespace leveldb
         Status Put(const Slice &key, const Slice &value) noexcept override
         {
             auto v = value.ToString();
-            auto r = emplace(key.ToString(), v);
+            // gcc 4.8: auto r = emplace(key.ToString(), v);
+            auto r = insert({key.ToString(), v});
             if (!r.second) r.first->second = v; // overwrite
             return Status::OK();
         }

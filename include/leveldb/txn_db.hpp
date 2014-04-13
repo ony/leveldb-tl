@@ -19,6 +19,8 @@ namespace leveldb
         TxnDB(Base &origin) : base(origin)
         {}
 
+        ~TxnDB() noexcept override = default;
+
         Status Get(const Slice &key, std::string &value) noexcept override
         {
             if (whiteout.find(key.ToString()) != whiteout.end())
