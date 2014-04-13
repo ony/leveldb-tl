@@ -109,7 +109,8 @@ TEST(Simple, walkWhiteout)
     leveldb::Whiteout wh { "b", "a", "c" };
 
     auto w = leveldb::walker(wh);
-    auto x = w;
+    auto x = w; // copy
+    (void) x;
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
@@ -333,12 +334,15 @@ TEST(Simple, network_order)
 
 TEST(Simple, sandwich)
 {
-    leveldb::SandwichDB<leveldb::MemoryDB> sdb;
+    leveldb::MemoryDB db;
+    leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
 
     auto a = sdb.use("alpha");
     ASSERT_TRUE( a.Valid() );
+    sdb.use("gamma").Put("x", "z");
     auto b = sdb.use("beta");
     ASSERT_TRUE( b.Valid() );
+    EXPECT_OK( sdb->commit() );
 
     string v;
 
