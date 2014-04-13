@@ -3,12 +3,14 @@
 #include "leveldb/cover_walker.hpp"
 #include "leveldb/memory_db.hpp"
 #include "leveldb/txn_db.hpp"
+#include "leveldb/sandwich_db.hpp"
 
 #include <gtest/gtest.h>
 
 #include "util.hpp"
 
 using namespace std;
+using ::testing::PrintToString;
 using leveldb::walker;
 using leveldb::subtract;
 
@@ -283,6 +285,37 @@ TEST(Simple, transaction)
     ASSERT_OK( db.Put("a", "5") );
     ASSERT_OK( txn.Get("a", v) );
     EXPECT_EQ( "5", v );
+}
+
+TEST(Simple, sequence)
+{
+    leveldb::MemoryDB db;
+    short x;
+
+    vector<short> e;
+
+
+    leveldb::Sequence<short> a(db, "x");
+    ASSERT_OK( a.Next(x) );
+    EXPECT_EQ( 0, x );
+    ASSERT_OK( a.Next(x) );
+    EXPECT_EQ( 1, x );
+
+    string v;
+
+    leveldb::Sequence<short> b(db, "x");
+    db.Get("x", v);
+    ASSERT_OK( b.Next(x) );
+    EXPECT_EQ( 2, x ) << "In db " << PrintToString(v);
+    db.Get("x", v);
+    ASSERT_OK( b.Next(x) );
+    EXPECT_EQ( 3, x ) << "In db " << PrintToString(v);
+
+    leveldb::Sequence<short> c(db, "x");
+    ASSERT_OK( c.Next(x) );
+    EXPECT_EQ( 4, x );
+    ASSERT_OK( c.Next(x) );
+    EXPECT_EQ( 5, x );
 }
 
 TEST(Simple, DISABLED_dummy)
