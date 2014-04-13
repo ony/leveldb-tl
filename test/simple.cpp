@@ -318,6 +318,19 @@ TEST(Simple, sequence)
     EXPECT_EQ( 5, x );
 }
 
+TEST(Simple, network_order)
+{
+    leveldb::network_order<unsigned short> x { 0x4241 };
+    EXPECT_EQ( "\x42\x41", leveldb::Slice(x) );
+    EXPECT_EQ( 0x4241, (unsigned short)x );
+    x = leveldb::Slice("\x43\x44");
+    EXPECT_EQ( "\x43\x44", leveldb::Slice(x) );
+    EXPECT_EQ( 0x4344, (unsigned short)x );
+    ++x;
+    EXPECT_EQ( "\x43\x45", leveldb::Slice(x) );
+    EXPECT_EQ( 0x4345, (unsigned short)x );
+}
+
 TEST(Simple, sandwich)
 {
     leveldb::SandwichDB<leveldb::MemoryDB> sdb;
@@ -332,10 +345,45 @@ TEST(Simple, sandwich)
     EXPECT_FAIL( a.Get("a", v) );
     EXPECT_FAIL( b.Get("a", v) );
     EXPECT_OK( a.Put("a", "1") );
+    EXPECT_OK( a.Put("b", "3") );
+    EXPECT_OK( b.Put("b", "2") );
 
     ASSERT_OK( a.Get("a", v) );
     EXPECT_EQ( "1", v );
     EXPECT_FAIL( b.Get("a", v) );
+
+    auto c = sdb.use("alpha");
+    ASSERT_OK( c.Get("a", v) );
+    EXPECT_EQ( "1", v );
+
+    auto w = walker(a);
+
+    w.SeekToFirst();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "1", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
+    ASSERT_FALSE( w.Valid() ) << "Walker still points to " << PrintToString(w.key());
+    EXPECT_FAIL( w.status() );
+
+    w.SeekToLast();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    EXPECT_OK( a.Delete("a") );
+    w.Prev();
+    EXPECT_FALSE( w.Valid() );
+    EXPECT_FAIL( w.status() );
 }
 
 TEST(Simple, DISABLED_dummy)
