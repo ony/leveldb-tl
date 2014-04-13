@@ -244,7 +244,10 @@ namespace leveldb
             auto p = prefix;
             ++p;
             impl.Seek(p);
-            impl.Prev();
+            if (impl.Valid())
+            { impl.Prev(); }
+            else
+            { impl.SeekToLast(); }
         }
         void Next() { impl.Next(); }
         void Prev() { impl.Prev(); }
