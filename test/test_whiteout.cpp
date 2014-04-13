@@ -26,8 +26,15 @@ private:
             switch (c)
             {
             case '.': a.Put(k, v); e.emplace_back(k, v); break;
-            case 'x': b.emplace(k); break;
-            case 'X': a.Put(k, v); b.emplace(k); break;
+            case 'x':
+                // gcc 4.8: b.emplace(k);
+                b.insert(k);
+                break;
+            case 'X':
+                a.Put(k, v);
+                // gcc 4.8: b.emplace(k);
+                b.insert(k);
+                break;
             }
 
             ++k[0]; ++v[0];

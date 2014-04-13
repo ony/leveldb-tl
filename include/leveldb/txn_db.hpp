@@ -19,6 +19,8 @@ namespace leveldb
         TxnDB(Base &origin) : base(origin)
         {}
 
+        ~TxnDB() noexcept override = default;
+
         Status Get(const Slice &key, std::string &value) noexcept override
         {
             if (whiteout.find(key.ToString()) != whiteout.end())
@@ -36,7 +38,7 @@ namespace leveldb
 
         Status Delete(const Slice &key) noexcept override
         {
-            whiteout.emplace(key.data(), key.size());
+            whiteout.insert(key.ToString());
             return overlay.Delete(key);
         }
 

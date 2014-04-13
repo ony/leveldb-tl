@@ -13,7 +13,7 @@ namespace leveldb
     {
         std::unique_ptr<DB> db;
     public:
-        ~BottomDB() override = default;
+        ~BottomDB() noexcept override = default;
 
         WriteOptions writeOptions;
         ReadOptions readOptions;
@@ -43,7 +43,14 @@ namespace leveldb
     };
 
     // handle BottomDB as an AnyDB
-    template<>
+    template <>
     struct Walker<BottomDB> : Walker<AnyDB>
-    { using Walker<AnyDB>::Walker; };
+    {
+        // gcc 4.8: using Walker<AnyDB>::Walker;
+
+        template <typename... Args>
+        Walker(Args &&... args) :
+            Walker<AnyDB>(std::forward<Args>(args)...)
+        {}
+    };
 }
