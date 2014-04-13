@@ -37,6 +37,8 @@ namespace leveldb
             case FwdLeft:
             case RevLeft:
                 return false;
+            default:
+                abort(); // unreachable
             }
         }
 

@@ -402,6 +402,7 @@ TEST_P(TestSandwich, seek_for_fuzzy_max)
     {
         SCOPED_TRACE("Sandwich part: " + n);
 
+        (void) e;
         auto t = sdb.use(n);
         auto w = walker(t);
 
