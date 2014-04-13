@@ -36,11 +36,11 @@ namespace leveldb
     };
 
     template <typename T>
-    Walker<T> walker(T &collection)
+    constexpr Walker<T> walker(T &collection)
     { return Walker<T>(collection); }
 
     template <typename T>
-    Walker<T> walker(const T &collection)
+    constexpr Walker<T> walker(const T &collection)
     { return Walker<T>(collection); }
 
     template <>

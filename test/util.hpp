@@ -5,11 +5,11 @@
 #include <gtest/gtest.h>
 
 namespace leveldb {
-    void PrintTo(const Slice &s, ::std::ostream *os)
+    inline void PrintTo(const Slice &s, ::std::ostream *os)
     { *os << ::testing::PrintToString(s.ToString()); }
 }
 
-::testing::AssertionResult ok(leveldb::Status s)
+inline ::testing::AssertionResult ok(leveldb::Status s)
 {
     if (s.ok()) return ::testing::AssertionSuccess() << s.ToString();
     else return ::testing::AssertionFailure() << s.ToString();

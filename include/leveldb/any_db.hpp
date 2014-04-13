@@ -68,10 +68,10 @@ namespace leveldb
     };
 
     template <typename T>
-    std::unique_ptr<AsIterator<T>> asIterator(T &&origin)
+    constexpr std::unique_ptr<AsIterator<T>> asIterator(T &&origin)
     { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(std::forward<T>(origin))); }
 
     template <typename T, typename... Args>
-    std::unique_ptr<AsIterator<T>> asIterator(Args &&... args)
+    constexpr std::unique_ptr<AsIterator<T>> asIterator(Args &&... args)
     { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(std::forward<Args>(args)...)); }
 }

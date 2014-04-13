@@ -9,7 +9,7 @@ namespace leveldb
     constexpr Order compare(int x) // compare with zero
     { return (x < 0) ? Order::LT : (x > 0) ? Order::GT : Order::EQ; }
 
-    Order compare(const Slice &a, const Slice &b)
+    inline Order compare(const Slice &a, const Slice &b)
     { return compare(a.compare(b)); }
 
     template <typename Base>
@@ -133,6 +133,6 @@ namespace leveldb
     };
 
     template <typename Base>
-    Subtract<Base> subtract(Base &base, Whiteout &whiteout)
+    constexpr Subtract<Base> subtract(Base &base, Whiteout &whiteout)
     { return {base, whiteout}; }
 }
