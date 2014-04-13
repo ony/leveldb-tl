@@ -71,20 +71,7 @@ namespace leveldb
         std::unique_ptr<Iterator> NewIterator() noexcept override
         { return asIterator(IteratorType(*this)); }
 
-        Status Write(WriteBatch &updates)
-        {
-            struct UpdateHandler : WriteBatch::Handler
-            {
-                MemoryDB *db;
-
-                void Put(const Slice& key, const Slice& value) override
-                { db->Put(key, value); }
-                void Delete(const Slice& key) override
-                { db->Delete(key); }
-            } handler;
-            handler.db = this;
-            return updates.Iterate(&handler);
-        }
+        using AnyDB::Write;
     };
 }
 

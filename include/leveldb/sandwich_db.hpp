@@ -128,7 +128,7 @@ namespace leveldb
 
     public:
         template <typename... Args>
-        SandwichDB(Args... args) : base(args...)
+        SandwichDB(Args &&... args) : base(std::forward<Args>(args)...)
         {}
 
         Base *operator->() { return &base; }
