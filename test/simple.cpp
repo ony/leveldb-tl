@@ -295,7 +295,6 @@ TEST(Simple, sequence)
 
     vector<short> e;
 
-
     leveldb::Sequence<short> a(db, "x");
     ASSERT_OK( a.Next(x) );
     EXPECT_EQ( 0, x );
@@ -319,17 +318,12 @@ TEST(Simple, sequence)
     EXPECT_EQ( 5, x );
 }
 
-TEST(Simple, network_order)
+TEST(Simple, host_order)
 {
-    leveldb::network_order<unsigned short> x { 0x4241 };
-    EXPECT_EQ( "\x42\x41", leveldb::Slice(x) );
-    EXPECT_EQ( 0x4241, (unsigned short)x );
-    x = leveldb::Slice("\x43\x44");
-    EXPECT_EQ( "\x43\x44", leveldb::Slice(x) );
-    EXPECT_EQ( 0x4344, (unsigned short)x );
-    ++x;
-    EXPECT_EQ( "\x43\x45", leveldb::Slice(x) );
-    EXPECT_EQ( 0x4345, (unsigned short)x );
+    leveldb::host_order<unsigned short> x { leveldb::Slice("\x42\x43", 2) };
+    EXPECT_EQ( "\x42\x43", leveldb::Slice(x) );
+    x.next_net();
+    EXPECT_EQ( "\x42\x44", leveldb::Slice(x) );
 }
 
 TEST(Simple, sandwich)
@@ -338,6 +332,71 @@ TEST(Simple, sandwich)
     leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
 
     auto a = sdb.use("alpha");
+    ASSERT_TRUE( a.Valid() );
+    sdb.use("gamma").Put("x", "z");
+    auto b = sdb.use("beta");
+    ASSERT_TRUE( b.Valid() );
+    EXPECT_OK( sdb->commit() );
+
+    string v;
+
+    EXPECT_FAIL( a.Get("a", v) );
+    EXPECT_FAIL( b.Get("a", v) );
+    EXPECT_OK( a.Put("a", "1") );
+    EXPECT_OK( a.Put("b", "3") );
+    EXPECT_OK( b.Put("b", "2") );
+
+    ASSERT_OK( a.Get("a", v) );
+    EXPECT_EQ( "1", v );
+    EXPECT_FAIL( b.Get("a", v) );
+
+    auto c = sdb.use("alpha");
+    ASSERT_OK( c.Get("a", v) );
+    EXPECT_EQ( "1", v );
+
+    auto w = walker(a);
+
+    w.SeekToFirst();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "1", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
+    ASSERT_FALSE( w.Valid() ) << "Walker still points to " << PrintToString(w.key());
+    EXPECT_FAIL( w.status() );
+
+    w.SeekToLast();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    EXPECT_OK( a.Delete("a") );
+    w.Prev();
+    EXPECT_FALSE( w.Valid() );
+    EXPECT_FAIL( w.status() );
+}
+
+TEST(Simple, big_sandwich)
+{
+    leveldb::MemoryDB db;
+    leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
+
+    auto a = sdb.use("alpha");
+
+    // make it bigger by stuffing in between layers
+    for (size_t i = 1; i < 0x0200; ++i)
+    {
+        (void) sdb.use(to_string(i));
+    }
+
     ASSERT_TRUE( a.Valid() );
     sdb.use("gamma").Put("x", "z");
     auto b = sdb.use("beta");

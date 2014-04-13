@@ -5,60 +5,61 @@
 namespace leveldb
 {
     template <typename T>
-    class network_order
+    class host_order
     {
-        unsigned char octets[sizeof(T)];
+        union {
+            T value;
+            char octets[sizeof(T)];
+        };
+
     public:
-        network_order() = default;
+        host_order() = default;
+        host_order(T x) : value(x) {}
+        host_order(const Slice &x) { *this = x; }
 
-        network_order(const Slice &x)
+        host_order &operator=(T x)
+        { value = x; return *this; }
+        host_order &operator=(const Slice &s)
         {
-            assert( x.size() == sizeof(octets) );
-            memcpy(octets, x.data(), sizeof(octets));
+            assert( !corrupted(s) );
+            memcpy(octets, s.data(), size());
+            return *this;
         }
 
-        network_order(T x)
-        {
-            for (unsigned char *p = octets + sizeof(octets)-1; p >= octets; --p)
-            {
-                *p = x;
-                x >>= 8;
-            }
-        }
+        operator T() const { return value; }
+        operator Slice() const { return Slice(data(), size()); }
 
-        operator T() const
-        {
-            T x = 0;
-            for (unsigned char c : octets)
-            { x = (x << 8) | c; }
-            return x;
-        }
-
-        operator Slice() const
-        { return Slice(data(), size()); }
+        host_order<T> &operator++()
+        { ++value; return *this; }
+        host_order<T> &operator--()
+        { --value; return *this; }
 
         // arithmetic in network order
-        network_order<T> &operator++()
+        host_order<T> &next_net()
         {
-            for (unsigned char *p = octets + sizeof(octets)-1; p >= octets; --p)
+            for (char *p = octets + sizeof(octets)-1; p >= octets; --p)
             {
                 if (++(*p) != 0) break;
             }
             return *this;
         }
 
-        constexpr size_t size() const
-        { return sizeof(octets); }
+        static constexpr size_t size()
+        { return sizeof(T); }
         constexpr const char *data() const
-        { return reinterpret_cast<const char *>(octets); }
+        { return octets; }
+        static bool corrupted(const Slice &s)
+        { return s.size() != size(); }
     };
 
     template <typename T, bool sync = true>
     class Sequence final
     {
+        static constexpr T invalid = (T)-1;
+
         AnyDB &base;
         Slice key;
-        T next = (T)-1;
+        host_order<T> next { invalid };
 
     public:
         // name and origin should outlive this object
@@ -69,28 +70,29 @@ namespace leveldb
         ~Sequence()
         { Save(); }
 
-        Status Next(T &value)
+        Status Next(host_order<T> &value)
         {
             Status s;
-            if (next == (T)-1)
+            if (next == invalid)
             {
                 s = Load();
                 if (!s.ok()) return s;
             }
-            value = next++;
-            if (sync)
+            value = next;
+            return Next();
+        }
+        Status Next(T &value)
+        {
+            Status s;
+            if (next == invalid)
             {
-                s = Save();
-                if (!s.ok()) // rollback
-                {
-                    --next;
-                    return s;
-                }
+                s = Load();
+                if (!s.ok()) return s;
             }
-            return Status::OK();
+            value = next;
+            return Next();
         }
     private:
-        // we use network order
         Status Load()
         {
             std::string v;
@@ -102,16 +104,31 @@ namespace leveldb
             }
             else if (s.ok())
             {
-                if (v.size() != sizeof(T))
+                if (next.corrupted(v))
                 { return Status::Corruption("Invalid sequence entry (value size mismatch)"); }
 
-                next = network_order<T> { v };
+                next = v;
             }
             return s;
         }
+
+        Status Next() // just skip to next
+        {
+            ++next;
+            if (sync)
+            {
+                Status s = Save();
+                if (!s.ok()) // rollback
+                {
+                    --next;
+                    return s;
+                }
+            }
+            return Status::OK();
+        }
     public:
         Status Save()
-        { return base.Put(key, network_order<T> { next }); }
+        { return base.Put(key, next); }
     };
 
     template <typename Base, typename Prefix = unsigned short>
@@ -139,22 +156,22 @@ namespace leveldb
             Status s;
             assert( !name.empty() );
 
-            Prefix p;
+            host_order<Prefix> p;
 
             std::string v;
             s = meta.Get(name, v);
             if (s.ok())
             {
-                if (v.size() != sizeof(Prefix)) // corrupted?
+                if (p.corrupted(v))
                 { return Part(); }
-                p = network_order<Prefix>{ v };
+                p = v;
             }
             else if (s.IsNotFound())
             {
                 s = seq.Next(p);
                 if (s.ok() && p == 0) s = seq.Next(p); // skip meta part
                 if (s.ok())
-                { s = meta.Put(name, network_order<Prefix>{ p }); }
+                { s = meta.Put(name, p); }
             }
             if (s.ok()) return Part(*this, p);
             else return Part();
@@ -165,7 +182,7 @@ namespace leveldb
     class SandwichDB<Base, Prefix>::Part final : public AnyDB
     {
         SandwichDB *sandwich;
-        network_order<Prefix> prefix;
+        host_order<Prefix> prefix;
 
         friend class SandwichDB<Base, Prefix>;
 
@@ -215,7 +232,7 @@ namespace leveldb
     template <typename Base, typename Prefix = short>
     class SandwichDB<Base, Prefix>::Part::IteratorType
     {
-        network_order<Prefix> prefix;
+        host_order<Prefix> prefix;
         typename Base::IteratorType impl;
 
     public:
@@ -242,7 +259,7 @@ namespace leveldb
         void SeekToLast()
         {
             auto p = prefix;
-            ++p;
+            p.next_net();;
             impl.Seek(p);
             if (impl.Valid())
             { impl.Prev(); }
@@ -255,7 +272,7 @@ namespace leveldb
         void Seek(const Slice &target)
         {
             char buf[prefix.size() + target.size()];
-            (void) memcpy(buf, prefix.data(), sizeof(prefix));
+            (void) memcpy(buf, prefix.data(), prefix.size());
             (void) memcpy(buf + sizeof(prefix), target.data(), target.size());
             impl.Seek(Slice(buf, sizeof(buf)));
         }
