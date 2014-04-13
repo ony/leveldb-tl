@@ -9,6 +9,7 @@ Features
 - abstract AnyDB
 - in-memory AnyDB
 - transactions layer
+- sandwich layer (multipl AnyDB in one)
 
 See tests/simple.cpp for samples of usage
 
