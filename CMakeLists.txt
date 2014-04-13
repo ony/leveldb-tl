@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.8)
 
-project(leveldb-blocks CXX)
+project(leveldb-tl CXX)
 
 enable_testing()
 

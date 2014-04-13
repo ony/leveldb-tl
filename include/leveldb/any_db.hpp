@@ -4,6 +4,7 @@
 #include <memory>
 
 #include <leveldb/db.h>
+#include <leveldb/write_batch.h>
 
 namespace leveldb
 {
@@ -17,6 +18,26 @@ namespace leveldb
         virtual Status Delete(const Slice &key) noexcept = 0;
 
         virtual std::unique_ptr<Iterator> NewIterator() noexcept = 0;
+
+    protected: // some common logic but implicitly disabled
+
+        // general implementation (expect specialization)
+        Status Write(WriteBatch &updates)
+        {
+            struct UpdateHandler : WriteBatch::Handler
+            {
+                AnyDB &db;
+                UpdateHandler(AnyDB &origin) : db(origin) {}
+
+                void Put(const Slice& key, const Slice& value) override
+                { db.Put(key, value); }
+
+                void Delete(const Slice& key) override
+                { db.Delete(key); }
+
+            } handler { *this };
+            return updates.Iterate(&handler);
+        }
     };
 
     template <typename T>
@@ -47,16 +68,10 @@ namespace leveldb
     };
 
     template <typename T>
-    std::unique_ptr<AsIterator<T>> asIterator(const T &origin)
-    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(origin)); }
-
-    template <typename T>
     std::unique_ptr<AsIterator<T>> asIterator(T &&origin)
-    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(origin)); }
+    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(std::forward<T>(origin))); }
 
-    /*
     template <typename T, typename... Args>
-    std::unique_ptr<AsIterator<T>> asIterator(Args... args)
-    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(args...)); }
-    */
+    std::unique_ptr<AsIterator<T>> asIterator(Args &&... args)
+    { return std::unique_ptr<AsIterator<T>>(new AsIterator<T>(std::forward<Args>(args)...)); }
 }

@@ -28,7 +28,7 @@ namespace leveldb
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
         { return std::unique_ptr<Iterator>(db->NewIterator(readOptions)); }
-        
+
         Status Open(const std::string &name)
         {
             DB *raw_db;
@@ -44,9 +44,6 @@ namespace leveldb
 
     // handle BottomDB as an AnyDB
     template<>
-    class Walker<BottomDB> : public Walker<AnyDB>
-    {
-    public:
-        using Walker<AnyDB>::Walker;
-    };
+    struct Walker<BottomDB> : Walker<AnyDB>
+    { using Walker<AnyDB>::Walker; };
 }

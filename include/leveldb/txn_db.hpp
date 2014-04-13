@@ -64,6 +64,8 @@ namespace leveldb
             }
             return s;
         }
+
+        using AnyDB::Write;
     };
 
     template <typename Base>
