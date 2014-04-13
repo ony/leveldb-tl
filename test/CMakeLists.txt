@@ -5,6 +5,7 @@ set(TESTS
     test_cover
     test_txn
     test_whiteout
+    test_sandwich
     )
 
 foreach(test ${TESTS})
