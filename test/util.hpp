@@ -15,6 +15,9 @@ namespace leveldb {
     else return ::testing::AssertionFailure() << s.ToString();
 }
 
+constexpr bool hostIsNetwork()
+{ return *reinterpret_cast<const short*>("\x01\x02") == 0x0102; }
+
 #define ASSERT_OK(E) ASSERT_TRUE(ok(E))
 #define EXPECT_OK(E) EXPECT_TRUE(ok(E))
 
