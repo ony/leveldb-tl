@@ -19,6 +19,11 @@ namespace leveldb
         ReadOptions readOptions;
         Options options;
 
+        const DB *operator*() const { return db.get(); }
+        const DB *operator->() const { return db.get(); }
+        DB *operator*() { return db.get(); }
+        DB *operator->() { return db.get(); }
+
         Status Get(const Slice &key, std::string &value) noexcept override
         { return db->Get(readOptions, key, &value); }
         Status Put(const Slice &key, const Slice &value) noexcept override

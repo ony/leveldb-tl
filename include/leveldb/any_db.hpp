@@ -45,10 +45,7 @@ namespace leveldb
     {
         T impl;
     public:
-        AsIterator(const T &origin) : impl(origin)
-        {}
-
-        AsIterator(T &&origin) : impl(origin)
+        AsIterator(T &&origin) : impl(std::forward<T>(origin))
         {}
 
         bool Valid() const override { return impl.Valid(); }
