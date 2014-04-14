@@ -1,6 +1,7 @@
 #pragma once
 
 #include <leveldb/any_db.hpp>
+#include <leveldb/ref_db.hpp>
 
 namespace leveldb
 {
@@ -144,11 +145,26 @@ namespace leveldb
         Sequence<Prefix> seq { meta, Slice() };
 
     public:
+        SandwichDB(SandwichDB<Base,Prefix> &&) = default;
+
         template <typename... Args>
         SandwichDB(Args &&... args) : base(std::forward<Args>(args)...)
         {}
 
         Base *operator->() { return &base; }
+
+        /// Create a same sandwich but from ref to this database.
+        //
+        /// \typeparam T refers to embeded database type that can be
+        /// constructed out of reference to current one.
+        ///
+        /// Usually used to create transaction/refs
+        template <typename T = RefDB<Base>>
+        SandwichDB<T, Prefix> ref()
+        { return base; }
+        template <template<typename> class T>
+        SandwichDB<T<Base>, Prefix> ref()
+        { return base; }
 
         // Note: this should be a pretty rare call
         Part use(const Slice &name)

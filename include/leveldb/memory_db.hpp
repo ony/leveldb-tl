@@ -47,7 +47,7 @@ namespace leveldb
             return Status::OK();
         }
 
-        class IteratorType final
+        class IteratorType
         {
             MemoryDB *rows;
             MemoryDB::iterator impl;
