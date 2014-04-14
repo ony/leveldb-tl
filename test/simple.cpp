@@ -1,9 +1,10 @@
+#include "leveldb/sandwich_db.hpp"
 #include "leveldb/bottom_db.hpp"
 #include "leveldb/walker.hpp"
 #include "leveldb/cover_walker.hpp"
 #include "leveldb/memory_db.hpp"
 #include "leveldb/txn_db.hpp"
-#include "leveldb/sandwich_db.hpp"
+#include "leveldb/ref_db.hpp"
 
 #include <gtest/gtest.h>
 
@@ -445,6 +446,70 @@ TEST(Simple, big_sandwich)
 
     EXPECT_OK( a.Delete("a") );
     w.Prev();
+    EXPECT_FALSE( w.Valid() );
+    EXPECT_FAIL( w.status() );
+}
+
+TEST(Simple, ref)
+{
+    leveldb::MemoryDB db;
+    leveldb::SandwichDB<leveldb::RefDB<>> sdb { db };
+    leveldb::SandwichDB<leveldb::TxnDB<>> txn { db };
+
+    auto a = sdb.use("x");
+    auto b = txn.use("x");
+
+    ASSERT_TRUE( a.Valid() );
+    ASSERT_TRUE( b.Valid() );
+
+    string v;
+
+    EXPECT_OK( a.Put("a", "0") );
+    EXPECT_OK( b.Put("a", "1") );
+    EXPECT_OK( a.Put("b", "2") );
+    EXPECT_OK( a.Put("c", "3") );
+    EXPECT_OK( b.Put("d", "4") );
+
+    EXPECT_OK( a.Get("a", v) );
+    EXPECT_EQ( "0", v );
+    EXPECT_OK( b.Get("a", v) );
+    EXPECT_EQ( "1", v );
+
+    EXPECT_OK( a.Get("b", v) );
+    EXPECT_EQ( "2", v );
+    EXPECT_OK( b.Get("b", v) );
+    EXPECT_EQ( "2", v );
+
+    EXPECT_OK( a.Get("c", v) );
+    EXPECT_EQ( "3", v );
+    EXPECT_OK( b.Get("c", v) );
+    EXPECT_EQ( "3", v );
+
+    EXPECT_FAIL( a.Get("d", v) );
+    EXPECT_OK( b.Get("d", v) );
+    EXPECT_EQ( "4", v );
+
+    auto w = leveldb::walker(a);
+
+    w.SeekToFirst();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "0", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "2", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
     EXPECT_FALSE( w.Valid() );
     EXPECT_FAIL( w.status() );
 }

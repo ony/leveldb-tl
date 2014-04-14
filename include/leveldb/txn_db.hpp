@@ -6,7 +6,8 @@
 
 namespace leveldb
 {
-    template<typename Base>
+    // note that Base object should outlive transaction
+    template<typename Base = AnyDB>
     class TxnDB final : public AnyDB
     {
         Base &base;

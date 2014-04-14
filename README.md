@@ -10,9 +10,14 @@ Features
 - in-memory AnyDB
 - transactions layer
 - sandwich layer (multiple AnyDB in one)
+- reference layer to embed ref. to existing AnyDB
 
 See tests/simple.cpp for samples of usage
 
+Goals to stick with
+-------------------
+- extreme fusion between layers to give a chance for compiler optimizer
+- minimize using of ref/ptr that leads outside of this library
 
 Credits
 -------
