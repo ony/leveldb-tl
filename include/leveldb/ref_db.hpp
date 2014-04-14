@@ -26,7 +26,7 @@ namespace leveldb
         struct IteratorType : Impl::IteratorType
         {
             IteratorType(RefDB<Impl> &origin) :
-                Impl::IteratorType(origin)
+                Impl::IteratorType(origin.impl)
             {}
         };
 

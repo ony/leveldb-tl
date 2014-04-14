@@ -329,15 +329,15 @@ TEST(Simple, host_order)
 
 TEST(Simple, sandwich)
 {
-    leveldb::MemoryDB db;
-    leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb;
+    auto txn = sdb.ref<leveldb::TxnDB>();
 
-    auto a = sdb.use("alpha");
+    auto a = txn.use("alpha");
     ASSERT_TRUE( a.Valid() );
-    sdb.use("gamma").Put("x", "z");
-    auto b = sdb.use("beta");
+    txn.use("gamma").Put("x", "z");
+    auto b = txn.use("beta");
     ASSERT_TRUE( b.Valid() );
-    EXPECT_OK( sdb->commit() );
+    EXPECT_OK( txn->commit() );
 
     string v;
 
@@ -351,7 +351,7 @@ TEST(Simple, sandwich)
     EXPECT_EQ( "1", v );
     EXPECT_FAIL( b.Get("a", v) );
 
-    auto c = sdb.use("alpha");
+    auto c = txn.use("alpha");
     ASSERT_OK( c.Get("a", v) );
     EXPECT_EQ( "1", v );
 
@@ -387,8 +387,7 @@ TEST(Simple, sandwich)
 
 TEST(Simple, big_sandwich)
 {
-    leveldb::MemoryDB db;
-    leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb;
 
     auto a = sdb.use("alpha");
 
@@ -402,7 +401,6 @@ TEST(Simple, big_sandwich)
     sdb.use("gamma").Put("x", "z");
     auto b = sdb.use("beta");
     ASSERT_TRUE( b.Valid() );
-    EXPECT_OK( sdb->commit() );
 
     string v;
 
@@ -452,9 +450,9 @@ TEST(Simple, big_sandwich)
 
 TEST(Simple, ref)
 {
-    leveldb::MemoryDB db;
-    leveldb::SandwichDB<leveldb::RefDB<>> sdb { db };
-    leveldb::SandwichDB<leveldb::TxnDB<>> txn { db };
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb0;
+    auto sdb = sdb0.ref();
+    auto txn = sdb.ref<leveldb::TxnDB>();
 
     auto a = sdb.use("x");
     auto b = txn.use("x");

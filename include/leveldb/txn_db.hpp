@@ -41,7 +41,7 @@ namespace leveldb
             return overlay.Delete(key);
         }
 
-        class IteratorType final : public Walker<Collection>
+        class IteratorType : public Walker<Collection>
         {
         public:
             IteratorType(TxnDB<Base> &txn) :
