@@ -455,7 +455,7 @@ TEST(Simple, ref)
     auto txn = sdb.ref<leveldb::TxnDB>();
 
     auto a = sdb.use("x");
-    auto b = txn.use("x");
+    auto b = a.ref(txn);
 
     ASSERT_TRUE( a.Valid() );
     ASSERT_TRUE( b.Valid() );
