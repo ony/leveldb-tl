@@ -2,6 +2,7 @@
 
 #include <leveldb/any_db.hpp>
 #include <leveldb/ref_db.hpp>
+#include <leveldb/walker.hpp>
 
 namespace leveldb
 {
@@ -249,7 +250,7 @@ namespace leveldb
     class SandwichDB<Base, Prefix>::Part::IteratorType
     {
         host_order<Prefix> prefix;
-        typename Base::IteratorType impl;
+        Walker<Base> impl;
 
     public:
         IteratorType(SandwichDB<Base, Prefix>::Part &origin) :

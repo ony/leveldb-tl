@@ -1,6 +1,7 @@
 #pragma once
 
 #include <leveldb/any_db.hpp>
+#include <leveldb/walker.hpp>
 
 namespace leveldb
 {
@@ -23,10 +24,10 @@ namespace leveldb
         Status Delete(const Slice &key) noexcept override
         { return impl.Delete(key); }
 
-        struct IteratorType : Impl::IteratorType
+        struct IteratorType : Walker<Impl>
         {
             IteratorType(RefDB<Impl> &origin) :
-                Impl::IteratorType(origin.impl)
+                Walker<Impl>(origin.impl)
             {}
         };
 
