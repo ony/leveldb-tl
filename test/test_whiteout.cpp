@@ -12,7 +12,7 @@ class TestWhiteout : public ::testing::TestWithParam<string>
 protected:
     using Base = leveldb::MemoryDB;
     Base a;
-    leveldb::Whiteout b;
+    leveldb::WhiteoutDB b;
     leveldb::Walker<leveldb::Subtract<Base>> w {{a, b}};
     vector<pair<string,string>> e; // expected key/val
 private:
@@ -26,8 +26,13 @@ private:
             switch (c)
             {
             case '.': a.Put(k, v); e.emplace_back(k, v); break;
-            case 'x': b.emplace(k); break;
-            case 'X': a.Put(k, v); b.emplace(k); break;
+            case 'x':
+                b.Insert(k);
+                break;
+            case 'X':
+                a.Put(k, v);
+                b.Insert(k);
+                break;
             }
 
             ++k[0]; ++v[0];

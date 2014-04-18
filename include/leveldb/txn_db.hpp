@@ -2,6 +2,7 @@
 
 #include <leveldb/any_db.hpp>
 #include <leveldb/memory_db.hpp>
+#include <leveldb/whiteout_db.hpp>
 #include <leveldb/cover_walker.hpp>
 
 namespace leveldb
@@ -12,7 +13,7 @@ namespace leveldb
     {
         Base &base;
         MemoryDB overlay;
-        Whiteout whiteout;
+        WhiteoutDB whiteout;
 
         using Collection = Cover<Subtract<Base>, MemoryDB>;
 
@@ -22,7 +23,7 @@ namespace leveldb
 
         Status Get(const Slice &key, std::string &value) noexcept override
         {
-            if (whiteout.find(key.ToString()) != whiteout.end())
+            if (whiteout.Check(key))
             { return Status::NotFound("Deleted in transaction", key); }
             auto s = overlay.Get(key, value);
             if (s.ok()) return s;
@@ -31,13 +32,13 @@ namespace leveldb
 
         Status Put(const Slice &key, const Slice &value) noexcept override
         {
-            whiteout.erase(key.ToString());
+            (void) whiteout.Delete(key);
             return overlay.Put(key, value);
         }
 
         Status Delete(const Slice &key) noexcept override
         {
-            whiteout.emplace(key.data(), key.size());
+            whiteout.Insert(key);
             return overlay.Delete(key);
         }
 
@@ -61,7 +62,7 @@ namespace leveldb
             if (s.ok())
             {
                 overlay.clear();
-                whiteout.clear();
+                whiteout.Delete();
             }
             return s;
         }

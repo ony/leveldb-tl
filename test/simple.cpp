@@ -107,7 +107,7 @@ TEST(Simple, walkMemoryDB)
 
 TEST(Simple, walkWhiteout)
 {
-    leveldb::Whiteout wh { "b", "a", "c" };
+    leveldb::WhiteoutDB wh { "b", "a", "c" };
 
     auto w = leveldb::walker(wh);
     auto x = w; // copy
@@ -148,7 +148,7 @@ TEST(Simple, walkSubtract)
         { "c", "3" },
     };
 
-    leveldb::Whiteout wh { "b" };
+    leveldb::WhiteoutDB wh { "b" };
 
     auto w = walker(subtract(mem, wh));
 
@@ -537,7 +537,7 @@ TEST(Simple, DISABLED_dummy)
     EXPECT_OK( db.Put("c", "4") );
 
 
-    leveldb::Whiteout wh { "b" };
+    leveldb::WhiteoutDB wh { "b" };
     leveldb::MemoryDB mem { { "d", "5" } };
 
     auto w = walker(subtract(db, wh));

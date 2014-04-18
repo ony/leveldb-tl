@@ -1,6 +1,5 @@
 #pragma once
 
-#include <set>
 #include <map>
 #include <memory>
 
@@ -67,31 +66,4 @@ namespace leveldb
         Status status() const { return impl->status(); }
     };
 
-    using Whiteout = std::set<std::string>;
-
-    template <>
-    class Walker<Whiteout>
-    {
-        Whiteout &rows;
-        Whiteout::iterator impl;
-    public:
-        Walker(Whiteout &origin) : rows(origin)
-        {}
-
-        bool Valid() const { return impl != rows.end(); }
-
-        void SeekToFirst() { impl = rows.begin(); }
-        void SeekToLast() { impl = rows.end(); if (impl != rows.begin()) --impl; }
-        void Seek(const Slice &target) { impl = rows.lower_bound(target.ToString()); }
-
-        void Next() { ++impl; }
-        void Prev() {
-            if (impl == rows.begin()) impl = rows.end();
-            else --impl;
-        }
-
-        Slice key() const { return *impl; }
-
-        Status status() const { return Valid() ? Status::OK() : Status::NotFound("invalid iterator"); }
-    };
 }

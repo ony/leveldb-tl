@@ -1,6 +1,7 @@
 #pragma once
 
 #include <leveldb/walker.hpp>
+#include <leveldb/whiteout_db.hpp>
 
 namespace leveldb
 {
@@ -16,14 +17,14 @@ namespace leveldb
     struct Subtract
     {
         Base &base;
-        Whiteout &whiteout; // subset of base
+        WhiteoutDB &whiteout; // subset of base
     };
 
     template <typename Base>
     class Walker<Subtract<Base>>
     {
         Walker<Base> w_base;
-        Walker<Whiteout> w_whiteout;
+        Walker<WhiteoutDB> w_whiteout;
 
         void SkipNext()
         {
@@ -133,6 +134,6 @@ namespace leveldb
     };
 
     template <typename Base>
-    constexpr Subtract<Base> subtract(Base &base, Whiteout &whiteout)
+    constexpr Subtract<Base> subtract(Base &base, WhiteoutDB &whiteout)
     { return {base, whiteout}; }
 }
