@@ -18,6 +18,7 @@ set(TESTS
     test_txn
     test_whiteout
     test_sandwich
+    test_corners
     )
 
 foreach(test ${TESTS})
