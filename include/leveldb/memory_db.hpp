@@ -9,22 +9,24 @@
 
 namespace leveldb
 {
-    // TODO: hide std::map
-    class MemoryDB final : public std::map<std::string, std::string>, public AnyDB
+    class MemoryDB final : private std::map<std::string, std::string>, public AnyDB
     {
-        typedef std::map<std::string, std::string> Impl;
         size_t rev = 0;
     public:
-        // gcc 4.8: using std::map<std::string, std::string>::map;
+        // gcc 4.8: using map::map;
         template <typename... Args>
         MemoryDB(Args &&... args) :
-            Impl(std::forward<Args>(args)...)
+            map(std::forward<Args>(args)...)
         {}
-        MemoryDB(std::initializer_list<Impl::value_type> items) :
-            Impl(items)
+        MemoryDB(std::initializer_list<map::value_type> items) :
+            map(items)
         {}
 
         ~MemoryDB() noexcept override = default;
+
+        using map::size;
+        using map::begin;
+        using map::end;
 
         Status Get(const Slice &key, std::string &value) noexcept override
         {
@@ -45,9 +47,15 @@ namespace leveldb
 
         Status Delete(const Slice &key) noexcept override
         {
-            if (erase(key.ToString()) > 0)
-            { ++rev; }
+            if (erase(key.ToString()) > 0) ++rev;
             return Status::OK();
+        }
+
+        void Delete()
+        {
+            if (empty()) return;
+            ++rev;
+            clear();
         }
 
         class IteratorType

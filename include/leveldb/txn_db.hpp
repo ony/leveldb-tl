@@ -63,10 +63,16 @@ namespace leveldb
             Status s = base.Write(batch);
             if (s.ok())
             {
-                overlay.clear();
+                overlay.Delete();
                 whiteout.Delete();
             }
             return s;
+        }
+
+        void reset()
+        {
+            overlay.Delete();
+            whiteout.Delete();
         }
 
         using AnyDB::Write;
