@@ -9,9 +9,11 @@
 
 namespace leveldb
 {
+    // TODO: hide std::map
     class MemoryDB final : public std::map<std::string, std::string>, public AnyDB
     {
         typedef std::map<std::string, std::string> Impl;
+        size_t rev = 0;
     public:
         // gcc 4.8: using std::map<std::string, std::string>::map;
         template <typename... Args>
@@ -43,37 +45,76 @@ namespace leveldb
 
         Status Delete(const Slice &key) noexcept override
         {
-            (void) erase(key.ToString());
+            if (erase(key.ToString()) > 0)
+            { ++rev; }
             return Status::OK();
         }
 
         class IteratorType
         {
             MemoryDB *rows;
-            MemoryDB::iterator impl;
+            mutable MemoryDB::iterator impl; // may change after container change
 
-        public:
-            IteratorType(MemoryDB &origin) : rows(&origin)
-            {}
+            // in case of deletion in container
+            mutable size_t rev;
+            mutable std::string savepoint;
 
-            bool Valid() const { return impl != rows->end(); }
-
-            void SeekToFirst() { impl = rows->begin(); }
-
-            void SeekToLast()
-            { impl = rows->end(); if (impl != rows->begin()) --impl; }
-
-            void Seek(const Slice &target)
-            { impl = rows->lower_bound(target.ToString()); }
-
-            void Next() { ++impl; }
-            void Prev() {
-                if (impl == rows->begin()) impl = rows->end();
-                else --impl;
+            // re-sync with container
+            void Sync(bool setup = false) const
+            {
+                if (setup)
+                {
+                    rev = rows->rev;
+                    // remember our key for further re-align if applicable
+                    if (impl != rows->end())
+                    { savepoint = impl->first; }
+                }
+                else if (rev != rows->rev)
+                {
+                    rev = rows->rev;
+                    // need to re-align on access if applicable
+                    if (impl != rows->end())
+                    { SeekImpl(savepoint); }
+                }
             }
 
-            Slice key() const { return impl->first; }
-            Slice value() const { return impl->second; }
+            void SeekImpl(const std::string &target) const
+            { impl = rows->lower_bound(target); }
+
+        public:
+            IteratorType(MemoryDB &origin) :
+                rows(&origin),
+                rev(origin.rev)
+            {}
+
+            /// Check that current entry is valid.
+            /// You should validate this object before any other operation.
+            ///
+            /// \note Validity of this iterator may change with container
+            ///       changing
+            bool Valid() const { Sync(); return impl != rows->end(); }
+
+            void SeekToFirst() { impl = rows->begin(); Sync(true); }
+
+            void SeekToLast()
+            {
+                impl = rows->end();
+                if (impl != rows->begin()) --impl;
+                Sync(true);
+            }
+
+            void Seek(const Slice &target) { SeekImpl(target.ToString()); Sync(true); }
+
+            void Next() { Sync(); ++impl; Sync(true); }
+            void Prev() {
+                Sync();
+                if (impl == rows->begin()) impl = rows->end();
+                else --impl;
+                Sync(true);
+            }
+
+            Slice key() const { Sync(); return impl->first; }
+            Slice value() const { Sync(); return impl->second; }
 
             Status status() const
             { return Valid() ? Status::OK() : Status::NotFound("invalid iterator"); }

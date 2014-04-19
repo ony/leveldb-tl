@@ -107,7 +107,7 @@ TEST(Simple, walkMemoryDB)
 
 TEST(Simple, walkWhiteout)
 {
-    leveldb::Whiteout wh { "b", "a", "c" };
+    leveldb::WhiteoutDB wh { "b", "a", "c" };
 
     auto w = leveldb::walker(wh);
     auto x = w; // copy
@@ -148,7 +148,7 @@ TEST(Simple, walkSubtract)
         { "c", "3" },
     };
 
-    leveldb::Whiteout wh { "b" };
+    leveldb::WhiteoutDB wh { "b" };
 
     auto w = walker(subtract(mem, wh));
 
@@ -301,22 +301,26 @@ TEST(Simple, sequence)
     EXPECT_EQ( 0, x );
     ASSERT_OK( a.Next(x) );
     EXPECT_EQ( 1, x );
+    EXPECT_OK( a.Sync() );
 
     string v;
 
+    leveldb::Sequence<short> z(std::move(a));
     leveldb::Sequence<short> b(db, "x");
-    db.Get("x", v);
+    EXPECT_OK( db.Get("x", v) );
     ASSERT_OK( b.Next(x) );
     EXPECT_EQ( 2, x ) << "In db " << PrintToString(v);
     db.Get("x", v);
     ASSERT_OK( b.Next(x) );
     EXPECT_EQ( 3, x ) << "In db " << PrintToString(v);
+    EXPECT_OK( b.Sync() );
 
     leveldb::Sequence<short> c(db, "x");
     ASSERT_OK( c.Next(x) );
     EXPECT_EQ( 4, x );
     ASSERT_OK( c.Next(x) );
     EXPECT_EQ( 5, x );
+    EXPECT_OK( c.Sync() );
 }
 
 TEST(Simple, host_order)
@@ -354,6 +358,9 @@ TEST(Simple, sandwich)
     auto c = txn.use("alpha");
     ASSERT_OK( c.Get("a", v) );
     EXPECT_EQ( "1", v );
+
+    EXPECT_OK( sdb.Sync() );
+    EXPECT_OK( txn.Sync() );
 
     auto w = walker(a);
 
@@ -401,6 +408,8 @@ TEST(Simple, big_sandwich)
     sdb.use("gamma").Put("x", "z");
     auto b = sdb.use("beta");
     ASSERT_TRUE( b.Valid() );
+
+    EXPECT_OK( sdb.Sync() );
 
     string v;
 
@@ -514,16 +523,21 @@ TEST(Simple, ref)
 
 TEST(Simple, DISABLED_dummy)
 {
-    leveldb::BottomDB db;
-    db.options.create_if_missing = true;
-    ASSERT_OK( db.Open("/tmp/test.ldb") );
+    leveldb::SandwichDB<leveldb::BottomDB> sdb;
+    sdb->options.create_if_missing = true;
+    ASSERT_OK( sdb->Open("/tmp/test.ldb") );
+
+    auto txn = sdb.ref<leveldb::TxnDB>();
+
+    auto alpha = sdb.use("alpha");
+    auto db = alpha.ref(txn);
 
     EXPECT_OK( db.Put("a", "1") );
     EXPECT_OK( db.Put("b", "2") );
     EXPECT_OK( db.Put("c", "4") );
 
 
-    leveldb::Whiteout wh { "b" };
+    leveldb::WhiteoutDB wh { "b" };
     leveldb::MemoryDB mem { { "d", "5" } };
 
     auto w = walker(subtract(db, wh));

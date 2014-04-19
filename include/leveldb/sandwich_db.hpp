@@ -3,136 +3,10 @@
 #include <leveldb/any_db.hpp>
 #include <leveldb/ref_db.hpp>
 #include <leveldb/walker.hpp>
+#include <leveldb/sequence.hpp>
 
 namespace leveldb
 {
-    template <typename T>
-    class host_order
-    {
-        union {
-            T value;
-            char octets[sizeof(T)];
-        };
-
-    public:
-        host_order() = default;
-        host_order(T x) : value(x) {}
-        host_order(const Slice &x) { *this = x; }
-
-        host_order &operator=(T x)
-        { value = x; return *this; }
-        host_order &operator=(const Slice &s)
-        {
-            assert( !corrupted(s) );
-            memcpy(octets, s.data(), size());
-            return *this;
-        }
-
-        operator T() const { return value; }
-        operator Slice() const { return Slice(data(), size()); }
-
-        host_order<T> &operator++()
-        { ++value; return *this; }
-        host_order<T> &operator--()
-        { --value; return *this; }
-
-        // arithmetic in network order
-        host_order<T> &next_net()
-        {
-            for (char *p = octets + sizeof(octets)-1; p >= octets; --p)
-            {
-                if (++(*p) != 0) break;
-            }
-            return *this;
-        }
-
-        static constexpr size_t size()
-        { return sizeof(T); }
-        constexpr const char *data() const
-        { return octets; }
-        static bool corrupted(const Slice &s)
-        { return s.size() != size(); }
-    };
-
-    template <typename T, bool sync = true>
-    class Sequence final
-    {
-        static constexpr T invalid = (T)-1;
-
-        AnyDB &base;
-        Slice key;
-        host_order<T> next { invalid };
-
-    public:
-        // name and origin should outlive this object
-        Sequence(AnyDB &base, const Slice &key) :
-            base(base), key(key)
-        {}
-
-        ~Sequence()
-        { Save(); }
-
-        Status Next(host_order<T> &value)
-        {
-            Status s;
-            if (next == invalid)
-            {
-                s = Load();
-                if (!s.ok()) return s;
-            }
-            value = next;
-            return Next();
-        }
-        Status Next(T &value)
-        {
-            Status s;
-            if (next == invalid)
-            {
-                s = Load();
-                if (!s.ok()) return s;
-            }
-            value = next;
-            return Next();
-        }
-    private:
-        Status Load()
-        {
-            std::string v;
-            Status s = base.Get(key, v);
-            if (s.IsNotFound())
-            {
-                next = 0;
-                if (sync) s = Save();
-            }
-            else if (s.ok())
-            {
-                if (next.corrupted(v))
-                { return Status::Corruption("Invalid sequence entry (value size mismatch)"); }
-
-                next = v;
-            }
-            return s;
-        }
-
-        Status Next() // just skip to next
-        {
-            ++next;
-            if (sync)
-            {
-                Status s = Save();
-                if (!s.ok()) // rollback
-                {
-                    --next;
-                    return s;
-                }
-            }
-            return Status::OK();
-        }
-    public:
-        Status Save()
-        { return base.Put(key, next); }
-    };
-
     template <typename Base, typename Prefix = unsigned short>
     class SandwichDB final
     {
@@ -206,6 +80,11 @@ namespace leveldb
             else
             { return s; }
         }
+
+        /// Synchronize meta-data back to underground layer.
+        /// This should be done before destroying object
+        Status Sync()
+        { return seq.Sync(); }
 
         /// Just an easy interface around cookie()
         Part use(const Slice &name)
