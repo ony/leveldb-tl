@@ -61,7 +61,7 @@ namespace leveldb
             Status s = base.Write(batch);
             if (s.ok())
             {
-                overlay.clear();
+                overlay.Delete();
                 whiteout.Delete();
             }
             return s;
