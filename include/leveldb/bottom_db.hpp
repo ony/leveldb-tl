@@ -9,37 +9,45 @@
 
 namespace leveldb
 {
-    class BottomDB final : public AnyDB
+    struct BottomDB final : std::unique_ptr<DB>, AnyDB
     {
-        std::unique_ptr<DB> db;
-    public:
+        BottomDB() = default;
+        BottomDB(BottomDB &&) = default;
+
+        template <typename... Args>
+        BottomDB(Args &&... args) :
+            unique_ptr(std::forward<Args>(args)...)
+        {}
+
         ~BottomDB() noexcept override = default;
+
+        BottomDB &operator=(BottomDB &&) = default;
 
         WriteOptions writeOptions;
         ReadOptions readOptions;
         Options options;
 
         Status Get(const Slice &key, std::string &value) noexcept override
-        { return db->Get(readOptions, key, &value); }
+        { return (*this)->Get(readOptions, key, &value); }
         Status Put(const Slice &key, const Slice &value) noexcept override
-        { return db->Put(writeOptions, key, value); }
+        { return (*this)->Put(writeOptions, key, value); }
         Status Delete(const Slice &key) noexcept override
-        { return db->Delete(writeOptions, key); }
+        { return (*this)->Delete(writeOptions, key); }
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
-        { return std::unique_ptr<Iterator>(db->NewIterator(readOptions)); }
+        { return std::unique_ptr<Iterator>((*this)->NewIterator(readOptions)); }
 
         Status Open(const std::string &name)
         {
             DB *raw_db;
             Status s = DB::Open(options, name, &raw_db);
-            if (s.ok()) db.reset(raw_db);
-            else db.reset();
+            if (s.ok()) reset(raw_db);
+            else reset();
             return s;
         }
 
         Status Write(WriteBatch &updates)
-        { return db->Write(writeOptions, &updates); }
+        { return (*this)->Write(writeOptions, &updates); }
     };
 
     // handle BottomDB as an AnyDB

@@ -1,9 +1,10 @@
+#include "leveldb/sandwich_db.hpp"
 #include "leveldb/bottom_db.hpp"
 #include "leveldb/walker.hpp"
 #include "leveldb/cover_walker.hpp"
 #include "leveldb/memory_db.hpp"
 #include "leveldb/txn_db.hpp"
-#include "leveldb/sandwich_db.hpp"
+#include "leveldb/ref_db.hpp"
 
 #include <gtest/gtest.h>
 
@@ -328,15 +329,78 @@ TEST(Simple, host_order)
 
 TEST(Simple, sandwich)
 {
-    leveldb::MemoryDB db;
-    leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb;
+    auto txn = sdb.ref<leveldb::TxnDB>();
+
+    auto a = txn.use("alpha");
+    ASSERT_TRUE( a.Valid() );
+    txn.use("gamma").Put("x", "z");
+    auto b = txn.use("beta");
+    ASSERT_TRUE( b.Valid() );
+    EXPECT_OK( txn->commit() );
+
+    string v;
+
+    EXPECT_FAIL( a.Get("a", v) );
+    EXPECT_FAIL( b.Get("a", v) );
+    EXPECT_OK( a.Put("a", "1") );
+    EXPECT_OK( a.Put("b", "3") );
+    EXPECT_OK( b.Put("b", "2") );
+
+    ASSERT_OK( a.Get("a", v) );
+    EXPECT_EQ( "1", v );
+    EXPECT_FAIL( b.Get("a", v) );
+
+    auto c = txn.use("alpha");
+    ASSERT_OK( c.Get("a", v) );
+    EXPECT_EQ( "1", v );
+
+    auto w = walker(a);
+
+    w.SeekToFirst();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "1", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
+    ASSERT_FALSE( w.Valid() ) << "Walker still points to " << PrintToString(w.key());
+    EXPECT_FAIL( w.status() );
+
+    w.SeekToLast();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    EXPECT_OK( a.Delete("a") );
+    w.Prev();
+    EXPECT_FALSE( w.Valid() );
+    EXPECT_FAIL( w.status() );
+}
+
+TEST(Simple, big_sandwich)
+{
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb;
 
     auto a = sdb.use("alpha");
+
+    // make it bigger by stuffing in between layers
+    for (size_t i = 1; i < 0x0200; ++i)
+    {
+        (void) sdb.use(to_string(i));
+    }
+
     ASSERT_TRUE( a.Valid() );
     sdb.use("gamma").Put("x", "z");
     auto b = sdb.use("beta");
     ASSERT_TRUE( b.Valid() );
-    EXPECT_OK( sdb->commit() );
 
     string v;
 
@@ -384,67 +448,66 @@ TEST(Simple, sandwich)
     EXPECT_FAIL( w.status() );
 }
 
-TEST(Simple, big_sandwich)
+TEST(Simple, ref)
 {
-    leveldb::MemoryDB db;
-    leveldb::SandwichDB<leveldb::TxnDB<leveldb::MemoryDB>> sdb { db };
+    leveldb::SandwichDB<leveldb::MemoryDB> sdb0;
+    auto sdb = sdb0.ref();
+    auto txn = sdb.ref<leveldb::TxnDB>();
 
-    auto a = sdb.use("alpha");
-
-    // make it bigger by stuffing in between layers
-    for (size_t i = 1; i < 0x0200; ++i)
-    {
-        (void) sdb.use(to_string(i));
-    }
+    auto a = sdb.use("x");
+    auto b = a.ref(txn);
 
     ASSERT_TRUE( a.Valid() );
-    sdb.use("gamma").Put("x", "z");
-    auto b = sdb.use("beta");
     ASSERT_TRUE( b.Valid() );
-    EXPECT_OK( sdb->commit() );
 
     string v;
 
-    EXPECT_FAIL( a.Get("a", v) );
-    EXPECT_FAIL( b.Get("a", v) );
-    EXPECT_OK( a.Put("a", "1") );
-    EXPECT_OK( a.Put("b", "3") );
-    EXPECT_OK( b.Put("b", "2") );
+    EXPECT_OK( a.Put("a", "0") );
+    EXPECT_OK( b.Put("a", "1") );
+    EXPECT_OK( a.Put("b", "2") );
+    EXPECT_OK( a.Put("c", "3") );
+    EXPECT_OK( b.Put("d", "4") );
 
-    ASSERT_OK( a.Get("a", v) );
-    EXPECT_EQ( "1", v );
-    EXPECT_FAIL( b.Get("a", v) );
-
-    auto c = sdb.use("alpha");
-    ASSERT_OK( c.Get("a", v) );
+    EXPECT_OK( a.Get("a", v) );
+    EXPECT_EQ( "0", v );
+    EXPECT_OK( b.Get("a", v) );
     EXPECT_EQ( "1", v );
 
-    auto w = walker(a);
+    EXPECT_OK( a.Get("b", v) );
+    EXPECT_EQ( "2", v );
+    EXPECT_OK( b.Get("b", v) );
+    EXPECT_EQ( "2", v );
+
+    EXPECT_OK( a.Get("c", v) );
+    EXPECT_EQ( "3", v );
+    EXPECT_OK( b.Get("c", v) );
+    EXPECT_EQ( "3", v );
+
+    EXPECT_FAIL( a.Get("d", v) );
+    EXPECT_OK( b.Get("d", v) );
+    EXPECT_EQ( "4", v );
+
+    auto w = leveldb::walker(a);
 
     w.SeekToFirst();
     ASSERT_TRUE( w.Valid() );
     EXPECT_OK( w.status() );
     EXPECT_EQ( "a", w.key() );
-    EXPECT_EQ( "1", w.value() );
+    EXPECT_EQ( "0", w.value() );
 
     w.Next();
     ASSERT_TRUE( w.Valid() );
     EXPECT_OK( w.status() );
     EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "2", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_OK( w.status() );
+    EXPECT_EQ( "c", w.key() );
     EXPECT_EQ( "3", w.value() );
 
     w.Next();
-    ASSERT_FALSE( w.Valid() ) << "Walker still points to " << PrintToString(w.key());
-    EXPECT_FAIL( w.status() );
-
-    w.SeekToLast();
-    ASSERT_TRUE( w.Valid() );
-    EXPECT_OK( w.status() );
-    EXPECT_EQ( "b", w.key() );
-    EXPECT_EQ( "3", w.value() );
-
-    EXPECT_OK( a.Delete("a") );
-    w.Prev();
     EXPECT_FALSE( w.Valid() );
     EXPECT_FAIL( w.status() );
 }

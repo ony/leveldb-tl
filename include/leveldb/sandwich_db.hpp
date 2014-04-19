@@ -1,6 +1,8 @@
 #pragma once
 
 #include <leveldb/any_db.hpp>
+#include <leveldb/ref_db.hpp>
+#include <leveldb/walker.hpp>
 
 namespace leveldb
 {
@@ -144,37 +146,75 @@ namespace leveldb
         Sequence<Prefix> seq { meta, Slice() };
 
     public:
+        SandwichDB(SandwichDB<Base,Prefix> &&) = default;
+
         template <typename... Args>
         SandwichDB(Args &&... args) : base(std::forward<Args>(args)...)
         {}
 
         Base *operator->() { return &base; }
 
-        // Note: this should be a pretty rare call
-        Part use(const Slice &name)
+        /// Create a same sandwich but from ref to this database.
+        //
+        /// \typeparam T refers to embeded database type that can be
+        /// constructed out of reference to current one.
+        ///
+        /// Usually used to create transaction/refs
+        template <typename T = RefDB<Base>>
+        SandwichDB<T, Prefix> ref()
+        { return base; }
+        template <template<typename> class T>
+        SandwichDB<T<Base>, Prefix> ref()
+        { return base; }
+
+        using Cookie = host_order<Prefix>;
+
+        /// Obtain part of sandwich
+        Part use(Cookie cookie)
+        { return {*this, cookie}; }
+
+        /// Cook a cookie for use
+        ///
+        /// \param result  ref to memory cell that receives cookie if status is
+        ///                success
+        ///
+        /// \note this call should be a pretty rare because it actually does
+        ///       lookup for an entry in database
+        Status cook(const Slice &name, Cookie &cookie)
         {
             Status s;
             assert( !name.empty() );
-
-            host_order<Prefix> p;
 
             std::string v;
             s = meta.Get(name, v);
             if (s.ok())
             {
-                if (p.corrupted(v))
-                { return Part(); }
-                p = v;
+                if (Cookie::corrupted(v))
+                { return Status::Corruption("Invalid sandwich mapping entry"); }
+                cookie = v;
+                return s;
             }
             else if (s.IsNotFound())
             {
-                s = seq.Next(p);
-                if (s.ok() && p == 0) s = seq.Next(p); // skip meta part
-                if (s.ok())
-                { s = meta.Put(name, p); }
+                Cookie nextCookie;
+                s = seq.Next(nextCookie);
+                if (s.ok() && nextCookie == 0) s = seq.Next(nextCookie); // skip meta part
+                if (s.ok()) s = meta.Put(name, nextCookie);
+                if (s.ok()) cookie = nextCookie;
+                return s;
             }
-            if (s.ok()) return Part(*this, p);
-            else return Part();
+            else
+            { return s; }
+        }
+
+        /// Just an easy interface around cookie()
+        Part use(const Slice &name)
+        {
+            Cookie cookie {};
+            if (cook(name, cookie).ok())
+            { return use(cookie); }
+            else
+            { return {}; }
         }
     };
 
@@ -192,7 +232,16 @@ namespace leveldb
     public:
         Part() : sandwich(nullptr) {}
 
+        /// Create an associated part in other sandwich stack with same parts
+        /// structure.
+        ///
+        /// Usually used to ref part for transaction/refs backed sandwich
+        template <template <typename> class T>
+        typename SandwichDB<T<Base>, Prefix>::Part ref(SandwichDB<T<Base>, Prefix> &origin)
+        { return origin.use(prefix); }
+
         bool Valid() const { return sandwich; }
+        SandwichDB::Cookie Cookie() const { return prefix; }
 
         Status Get(const Slice &key, std::string &value) noexcept override
         {
@@ -233,7 +282,7 @@ namespace leveldb
     class SandwichDB<Base, Prefix>::Part::IteratorType
     {
         host_order<Prefix> prefix;
-        typename Base::IteratorType impl;
+        Walker<Base> impl;
 
     public:
         IteratorType(SandwichDB<Base, Prefix>::Part &origin) :
