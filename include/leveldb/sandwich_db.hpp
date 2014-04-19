@@ -26,6 +26,7 @@ namespace leveldb
         SandwichDB(Args &&... args) : base(std::forward<Args>(args)...)
         {}
 
+        Base &operator*() { return base; }
         Base *operator->() { return &base; }
 
         /// Create a same sandwich but from ref to this database.

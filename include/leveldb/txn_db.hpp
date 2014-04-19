@@ -67,6 +67,12 @@ namespace leveldb
             return s;
         }
 
+        void reset()
+        {
+            overlay.Delete();
+            whiteout.Delete();
+        }
+
         using AnyDB::Write;
     };
 

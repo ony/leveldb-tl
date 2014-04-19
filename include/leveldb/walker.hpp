@@ -50,6 +50,7 @@ namespace leveldb
         Walker(AnyDB &db) : impl(db.NewIterator())
         {}
 
+        Iterator &operator*() { return *impl; }
         Iterator* operator->() { return impl.get(); }
 
         bool Valid() const { return impl->Valid(); }
