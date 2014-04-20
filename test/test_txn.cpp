@@ -13,7 +13,7 @@ protected:
     leveldb::MemoryDB db;
     using TxnType = leveldb::TxnDB<leveldb::MemoryDB>;
     TxnType txn = transaction(db);
-    leveldb::Walker<TxnType> w = walker(txn);
+    TxnType::Walker w = walker(txn);
     vector<pair<string,string>> e; // expected key/val
 private:
     void SetUp()

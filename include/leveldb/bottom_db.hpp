@@ -45,9 +45,4 @@ namespace leveldb
         Status Write(WriteBatch &updates)
         { return (*this)->Write(writeOptions, &updates); }
     };
-
-    // handle BottomDB as an AnyDB
-    template<>
-    struct Walker<BottomDB> : Walker<AnyDB>
-    { using Walker<AnyDB>::Walker; };
 }

@@ -7,22 +7,17 @@ namespace leveldb
     template <typename Base, typename Overlay>
     struct Cover
     {
-        Base &base;
-        Overlay &overlay;
+        typename WalkSource<Base>::Embed base;
+        typename WalkSource<Overlay>::Embed overlay;
+
+        class Walker;
     };
 
     template <typename Base, typename Overlay>
-    struct Cover<Subtract<Base>, Overlay>
+    class Cover<Base, Overlay>::Walker
     {
-        Subtract<Base> base;
-        Overlay &overlay;
-    };
-
-    template <typename Base, typename Overlay>
-    class Walker<Cover<Base, Overlay>>
-    {
-        Walker<Base> i;
-        Walker<Overlay> j;
+        typename Base::Walker i;
+        typename Overlay::Walker j;
 
         enum { Both, FwdLeft, FwdRight, RevLeft, RevRight } state;
 

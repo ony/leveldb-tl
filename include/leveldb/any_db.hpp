@@ -19,6 +19,8 @@ namespace leveldb
 
         virtual std::unique_ptr<Iterator> NewIterator() noexcept = 0;
 
+        struct Walker;
+
     protected: // some common logic but implicitly disabled
 
         // general implementation (expect specialization)
@@ -38,6 +40,32 @@ namespace leveldb
             } handler { *this };
             return updates.Iterate(&handler);
         }
+    };
+
+    /// Default implementation of iterator type for generic AnyDB.
+    /// It's recommended to override in AnyDB implementation with a more
+    /// specific and thus faster variant.
+    struct AnyDB::Walker : std::unique_ptr<Iterator>
+    {
+        using unique_ptr::unique_ptr;
+        Walker(AnyDB &db) : unique_ptr(db.NewIterator())
+        {}
+
+        using unique_ptr::operator*;
+        using unique_ptr::operator->;
+
+        bool Valid() const { return (*this)->Valid(); }
+
+        void SeekToFirst() { (*this)->SeekToFirst(); }
+        void SeekToLast() { (*this)->SeekToLast(); }
+        void Seek(const Slice &target) { (*this)->Seek(target); }
+
+        void Next() { (*this)->Next(); }
+        void Prev() { (*this)->Prev(); }
+
+        Slice key() const { return (*this)->key(); }
+        Slice value() const { return (*this)->value(); }
+        Status status() const { return (*this)->status(); }
     };
 
     template <typename T>

@@ -10,61 +10,10 @@
 namespace leveldb
 {
     template <typename T>
-    class Walker
-    {
-        typename T::IteratorType impl;
-
-    public:
-        Walker(T &db) : impl(db)
-        {}
-
-        Iterator* operator->() { return &impl; }
-
-        bool Valid() const { return impl.Valid(); }
-
-        void SeekToFirst() { impl.SeekToFirst(); }
-        void SeekToLast() { impl.SeekToLast(); }
-        void Seek(const Slice &target) { impl.Seek(target); }
-
-        void Next() { impl.Next(); }
-        void Prev() { impl.Prev(); }
-
-        Slice key() const { return impl.key(); }
-        Slice value() const { return impl.value(); }
-        Status status() const { return impl.status(); }
-    };
+    constexpr typename T::Walker walker(T &collection)
+    { return { collection }; }
 
     template <typename T>
-    constexpr Walker<T> walker(T &collection)
-    { return Walker<T>(collection); }
-
-    template <typename T>
-    constexpr Walker<T> walker(const T &collection)
-    { return Walker<T>(collection); }
-
-    template <>
-    class Walker<AnyDB>
-    {
-        std::unique_ptr<Iterator> impl;
-    public:
-        Walker(AnyDB &db) : impl(db.NewIterator())
-        {}
-
-        Iterator &operator*() { return *impl; }
-        Iterator* operator->() { return impl.get(); }
-
-        bool Valid() const { return impl->Valid(); }
-
-        void SeekToFirst() { impl->SeekToFirst(); }
-        void SeekToLast() { impl->SeekToLast(); }
-        void Seek(const Slice &target) { impl->Seek(target); }
-
-        void Next() { impl->Next(); }
-        void Prev() { impl->Prev(); }
-
-        Slice key() const { return impl->key(); }
-        Slice value() const { return impl->value(); }
-        Status status() const { return impl->status(); }
-    };
-
+    constexpr typename T::Walker walker(const T &collection)
+    { return { collection }; }
 }

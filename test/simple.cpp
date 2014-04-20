@@ -257,7 +257,7 @@ TEST(Simple, transaction)
     EXPECT_EQ( "1", v );
 
     // check iterator
-    TxnType::IteratorType i(txn);
+    TxnType::Walker i(txn);
 
     i.SeekToFirst();
     ASSERT_TRUE( i.Valid() );

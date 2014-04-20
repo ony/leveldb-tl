@@ -13,7 +13,7 @@ protected:
     using Base = leveldb::MemoryDB;
     Base a;
     leveldb::WhiteoutDB b;
-    leveldb::Walker<leveldb::Subtract<Base>> w {{a, b}};
+    leveldb::Subtract<Base>::Walker w {{a, b}};
     vector<pair<string,string>> e; // expected key/val
 private:
     void SetUp()

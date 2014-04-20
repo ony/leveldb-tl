@@ -48,7 +48,7 @@ namespace leveldb
             clear();
         }
 
-        class IteratorType
+        class Walker
         {
             MemoryDB *rows;
             mutable MemoryDB::iterator impl; // may change after container change
@@ -80,7 +80,7 @@ namespace leveldb
             { impl = rows->lower_bound(target); }
 
         public:
-            IteratorType(MemoryDB &origin) :
+            Walker(MemoryDB &origin) :
                 rows(&origin),
                 rev(origin.rev)
             {}
@@ -119,7 +119,7 @@ namespace leveldb
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
-        { return asIterator(IteratorType(*this)); }
+        { return asIterator(Walker(*this)); }
 
         using AnyDB::Write;
     };
