@@ -14,6 +14,7 @@ namespace leveldb
         Base &base;
         MemoryDB overlay;
         WhiteoutDB whiteout;
+        size_t rev = 0;
 
         using Collection = Cover<Subtract<Base>, MemoryDB>;
 
@@ -34,22 +35,65 @@ namespace leveldb
 
         Status Put(const Slice &key, const Slice &value) noexcept override
         {
+            ++rev;
             (void) whiteout.Delete(key);
             return overlay.Put(key, value);
         }
 
         Status Delete(const Slice &key) noexcept override
         {
+            ++rev;
             whiteout.Insert(key);
             return overlay.Delete(key);
         }
 
-        class Walker : public Collection::Walker
+        class Walker
         {
+            typename Collection::Walker impl;
+            size_t rev;
+            size_t &revTxn;
+            std::string savepoint;
+
+            /// Sync walkers with collection.
+            /// \return true if jumped one record forward
+            bool Sync()
+            {
+                if (rev != revTxn)
+                {
+                    rev = revTxn;
+                    if (Valid())
+                    {
+                        impl.Seek(savepoint);
+                        assert( impl.key().compare(savepoint) >= 0 );
+                        return impl.key().compare(savepoint) > 0;
+                    }
+
+                }
+                return false;
+            }
+
+            void Synced()
+            {
+                rev = revTxn;
+                if (Valid()) savepoint = impl.key().ToString();
+            }
         public:
             Walker(TxnDB<Base> &txn) :
-                Collection::Walker({{txn.base, txn.whiteout}, txn.overlay})
+                impl({{txn.base, txn.whiteout}, txn.overlay}),
+                rev(txn.rev),
+                revTxn(txn.rev)
             {}
+
+            bool Valid() const { return impl.Valid(); }
+            Slice key() const { return impl.key(); }
+            Slice value() const { return impl.value(); }
+            Status status() const { return impl.status(); }
+
+            void Seek(const Slice &target) { impl.Seek(target); Synced(); }
+            void SeekToFirst() { impl.SeekToFirst(); Synced(); }
+            void SeekToLast() { impl.SeekToLast(); Synced(); }
+            void Next() { if (!Sync()) { impl.Next(); Synced(); } }
+            void Prev() { Sync(); impl.Prev(); Synced(); }
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
