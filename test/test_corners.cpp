@@ -95,7 +95,7 @@ TEST(TestTxnIterator, txn_walk_deleted_delete)
     EXPECT_FALSE( w.Valid() ) << "Still have key " << PrintToString(w.key());
 }
 
-TEST(TestTxnIterator, DISABLED_txn_walk_deleted)
+TEST(TestTxnIterator, txn_walk_deleted)
 {
     leveldb::MemoryDB mem {
         { "b", "1" },
@@ -121,7 +121,7 @@ TEST(TestTxnIterator, DISABLED_txn_walk_deleted)
 }
 
 // insert right between walkers over database and transaction
-TEST(TestTxnIterator, DISABLED_txn_insert_next)
+TEST(TestTxnIterator, txn_insert_next)
 {
     leveldb::MemoryDB mem {
         { "a", "2" },

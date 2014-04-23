@@ -14,6 +14,7 @@ namespace leveldb
         Base &base;
         MemoryDB overlay;
         WhiteoutDB whiteout;
+        size_t rev = 0;
 
         using Collection = Cover<Subtract<Base>, MemoryDB>;
 
@@ -32,22 +33,53 @@ namespace leveldb
 
         Status Put(const Slice &key, const Slice &value) noexcept override
         {
+            ++rev;
             (void) whiteout.Delete(key);
             return overlay.Put(key, value);
         }
 
         Status Delete(const Slice &key) noexcept override
         {
+            ++rev;
             whiteout.Insert(key);
             return overlay.Delete(key);
         }
 
-        class Walker : public Collection::Walker
+        class Walker
         {
+            mutable typename Collection::Walker impl;
+            mutable size_t rev;
+            size_t &revTxn;
+
+            void Sync(bool setup = false) const
+            {
+                if (setup)
+                {
+                    rev = revTxn;
+                }
+                else if (rev != revTxn)
+                {
+                    rev = revTxn;
+                    impl.Seek(impl.key());
+                }
+            }
         public:
             Walker(TxnDB<Base> &txn) :
-                Collection::Walker({{txn.base, txn.whiteout}, txn.overlay})
+                impl({{txn.base, txn.whiteout}, txn.overlay}),
+                rev(txn.rev),
+                revTxn(txn.rev)
             {}
+
+            bool Valid() const { Sync(); return impl.Valid(); }
+            Slice key() const { Sync(); return impl.key(); }
+            Slice value() const { Sync(); return impl.value(); }
+            Status status() const { Sync(); return impl.status(); }
+
+            void Seek(const Slice &target) { impl.Seek(target); Sync(true); }
+            void SeekToFirst() { impl.SeekToFirst(); Sync(true); }
+            void SeekToLast() { impl.SeekToLast(); Sync(true); }
+            void Next() { Sync(); impl.Next(); Sync(true); }
+            void Prev() { Sync(); impl.Prev(); Sync(true); }
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
