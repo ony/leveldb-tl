@@ -48,52 +48,64 @@ namespace leveldb
         class Walker
         {
             WhiteoutDB &rows;
-            mutable WhiteoutDB::iterator impl;
+            WhiteoutDB::iterator impl;
 
-            mutable size_t rev;
-            mutable std::string savepoint;
+            size_t rev;
+            std::string savepoint;
 
             // re-sync with container (delete epoch)
-            void Sync(bool setup = false) const
+            bool Sync()
             {
-                if (setup)
-                {
-                    rev = rows.rev;
-                    // remember our key for further re-align if applicable
-                    if (impl != rows.end())
-                    { savepoint = *impl; }
-                }
-                else if (rev != rows.rev)
+                if (rev != rows.rev)
                 {
                     rev = rows.rev;
                     // need to re-align on access if applicable
-                    if (impl != rows.end())
+                    if (Valid())
                     { SeekImpl(savepoint); }
+                    return true;
                 }
+                return false;
             }
 
-            void SeekImpl(const std::string &target) const
+            void Synced()
+            {
+                rev = rows.rev;
+                // remember our key for further re-align if applicable
+                if (Valid())
+                { savepoint = *impl; }
+            }
+
+            void SeekImpl(const std::string &target)
             { impl = rows.lower_bound(target); }
 
         public:
             Walker(WhiteoutDB &origin) : rows(origin), rev(origin.rev)
             {}
 
-            bool Valid() const { Sync(); return impl != rows.end(); Sync(true); }
+            bool Valid() const { return impl != rows.end(); }
 
-            void SeekToFirst() { impl = rows.begin(); Sync(true); }
-            void SeekToLast() { impl = rows.end(); if (impl != rows.begin()) --impl; Sync(true); }
-            void Seek(const Slice &target) { SeekImpl(target.ToString()); Sync(true); }
+            void SeekToFirst() { impl = rows.begin(); Synced(); }
+            void SeekToLast() { impl = rows.end(); if (impl != rows.begin()) --impl; Synced(); }
+            void Seek(const Slice &target) { SeekImpl(target.ToString()); Synced(); }
 
-            void Next() { Sync(); ++impl; Sync(true); }
-            void Prev() {
-                Sync();
-                if (impl == rows.begin()) impl = rows.end();
-                else --impl;
-                Sync(true);
+            void Next()
+            {
+                if (Sync()) return; // already moved to next record - nothing to do
+                ++impl;
+                Synced();
             }
 
-            Slice key() const { Sync(); return *impl; }
+            void Prev()
+            {
+                (void) Sync();
+                // regardles if we point to next record after ghost or current
+                // is still valid we should move backward one step
+                if (impl == rows.begin()) impl = rows.end();
+                else --impl;
+                Synced();
+            }
+
+            Slice key() const { return *impl; }
 
             Status status() const { return Valid() ? Status::OK() : Status::NotFound("invalid iterator"); }
         };

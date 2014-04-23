@@ -47,21 +47,33 @@ namespace leveldb
 
         class Walker
         {
-            mutable typename Collection::Walker impl;
-            mutable size_t rev;
+            typename Collection::Walker impl;
+            size_t rev;
             size_t &revTxn;
+            std::string savepoint;
 
-            void Sync(bool setup = false) const
+            /// Sync walkers with collection.
+            /// \return true if jumped one record forward
+            bool Sync()
             {
-                if (setup)
+                if (rev != revTxn)
                 {
                     rev = revTxn;
+                    if (Valid())
+                    {
+                        impl.Seek(savepoint);
+                        assert( impl.key().compare(savepoint) >= 0 );
+                        return impl.key().compare(savepoint) > 0;
+                    }
+
                 }
-                else if (rev != revTxn)
-                {
-                    rev = revTxn;
-                    impl.Seek(impl.key());
-                }
+                return false;
+            }
+
+            void Synced()
+            {
+                rev = revTxn;
+                if (Valid()) savepoint = impl.key().ToString();
             }
         public:
             Walker(TxnDB<Base> &txn) :
@@ -70,16 +82,16 @@ namespace leveldb
                 revTxn(txn.rev)
             {}
 
-            bool Valid() const { Sync(); return impl.Valid(); }
-            Slice key() const { Sync(); return impl.key(); }
-            Slice value() const { Sync(); return impl.value(); }
-            Status status() const { Sync(); return impl.status(); }
+            bool Valid() const { return impl.Valid(); }
+            Slice key() const { return impl.key(); }
+            Slice value() const { return impl.value(); }
+            Status status() const { return impl.status(); }
 
-            void Seek(const Slice &target) { impl.Seek(target); Sync(true); }
-            void SeekToFirst() { impl.SeekToFirst(); Sync(true); }
-            void SeekToLast() { impl.SeekToLast(); Sync(true); }
-            void Next() { Sync(); impl.Next(); Sync(true); }
-            void Prev() { Sync(); impl.Prev(); Sync(true); }
+            void Seek(const Slice &target) { impl.Seek(target); Synced(); }
+            void SeekToFirst() { impl.SeekToFirst(); Synced(); }
+            void SeekToLast() { impl.SeekToLast(); Synced(); }
+            void Next() { if (!Sync()) { impl.Next(); Synced(); } }
+            void Prev() { Sync(); impl.Prev(); Synced(); }
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override

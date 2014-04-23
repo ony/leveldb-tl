@@ -51,32 +51,35 @@ namespace leveldb
         class Walker
         {
             MemoryDB *rows;
-            mutable MemoryDB::iterator impl; // may change after container change
+            MemoryDB::iterator impl; // may change after container change
 
             // in case of deletion in container
-            mutable size_t rev;
-            mutable std::string savepoint;
+            size_t rev;
+            std::string savepoint;
 
-            // re-sync with container
-            void Sync(bool setup = false) const
+            // re-sync with container if needed
+            bool Sync()
             {
-                if (setup)
-                {
-                    rev = rows->rev;
-                    // remember our key for further re-align if applicable
-                    if (impl != rows->end())
-                    { savepoint = impl->first; }
-                }
-                else if (rev != rows->rev)
+                if (rev != rows->rev)
                 {
                     rev = rows->rev;
                     // need to re-align on access if applicable
-                    if (impl != rows->end())
+                    if (Valid())
                     { SeekImpl(savepoint); }
+                    return true;
                 }
+                return false;
             }
 
-            void SeekImpl(const std::string &target) const
+            void Synced()
+            {
+                rev = rows->rev;
+                // remember our key for further re-align if applicable
+                if (Valid())
+                { savepoint = impl->first; }
+            }
+
+            void SeekImpl(const std::string &target)
             { impl = rows->lower_bound(target); }
 
         public:
@@ -86,36 +89,46 @@ namespace leveldb
             {}
 
             /// Check that current entry is valid.
-            /// You should validate this object before any other operation.
+            /// You should validate this object before any other operation of
+            /// accessing data or relative movement.
             ///
             /// \note Validity of this iterator may change with container
             ///       changing
-            bool Valid() const { Sync(); return impl != rows->end(); }
+            /// \note In case if iterator points to ghost record we should step
+            ///       away from it. That's the only case when Valid shouldn't
+            ///       be called and any movement must be performed before.
+            bool Valid() const { return impl != rows->end(); }
 
-            void SeekToFirst() { impl = rows->begin(); Sync(true); }
+            void SeekToFirst() { impl = rows->begin(); Synced(); }
 
             void SeekToLast()
             {
                 impl = rows->end();
                 if (impl != rows->begin()) --impl;
-                Sync(true);
+                Synced();
             }
 
-            void Seek(const Slice &target) { SeekImpl(target.ToString()); Sync(true); }
+            void Seek(const Slice &target) { SeekImpl(target.ToString()); Synced(); }
 
-            void Next() { Sync(); ++impl; Sync(true); }
+            void Next()
+            {
+                if (Sync()) return; // already pointing to next record
+                ++impl;
+                Synced();
+            }
             void Prev() {
-                Sync();
+                (void) Sync();
+                // no matter if Sync() automatically moved us forward or not we
+                // should move backward to get previous record
                 if (impl == rows->begin()) impl = rows->end();
                 else --impl;
-                Sync(true);
+                Synced();
             }
 
-            Slice key() const { Sync(); return impl->first; }
-            Slice value() const { Sync(); return impl->second; }
+            Slice key() const { return impl->first; }
+            Slice value() const { return impl->second; }
 
-            Status status() const
-            { return Valid() ? Status::OK() : Status::NotFound("invalid iterator"); }
+            Status status() const { return Valid() ? Status::OK() : Status::NotFound("invalid iterator"); }
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
