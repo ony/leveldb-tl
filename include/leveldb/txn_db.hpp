@@ -44,16 +44,16 @@ namespace leveldb
             return overlay.Delete(key);
         }
 
-        class IteratorType : public Walker<Collection>
+        class Walker : public Collection::Walker
         {
         public:
-            IteratorType(TxnDB<Base> &txn) :
-                Walker<Collection>({{txn.base, txn.whiteout}, txn.overlay})
+            Walker(TxnDB<Base> &txn) :
+                Collection::Walker({{txn.base, txn.whiteout}, txn.overlay})
             {}
         };
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
-        { return asIterator(IteratorType(*this)); }
+        { return asIterator(Walker(*this)); }
 
         Status commit()
         {

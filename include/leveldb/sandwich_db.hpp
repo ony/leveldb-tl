@@ -12,7 +12,6 @@ namespace leveldb
     {
     public:
         class Part;
-        using IteratorType = typename Part::IteratorType;
 
     private:
         Base base;
@@ -149,23 +148,23 @@ namespace leveldb
             return sandwich->base.Delete(Slice(buf, sizeof(buf)));
         }
 
-        class IteratorType;
+        class Walker;
 
         std::unique_ptr<Iterator> NewIterator() noexcept override
         {
             assert( Valid() );
-            return asIterator(IteratorType(*this));
+            return asIterator(Walker(*this));
         }
     };
 
     template <typename Base, typename Prefix = short>
-    class SandwichDB<Base, Prefix>::Part::IteratorType
+    class SandwichDB<Base, Prefix>::Part::Walker
     {
         host_order<Prefix> prefix;
-        Walker<Base> impl;
+        typename Base::Walker impl;
 
     public:
-        IteratorType(SandwichDB<Base, Prefix>::Part &origin) :
+        Walker(SandwichDB<Base, Prefix>::Part &origin) :
             prefix{ origin.prefix }, impl{ origin.sandwich->base }
         {}
 

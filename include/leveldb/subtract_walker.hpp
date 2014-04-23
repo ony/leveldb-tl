@@ -13,18 +13,26 @@ namespace leveldb
     inline Order compare(const Slice &a, const Slice &b)
     { return compare(a.compare(b)); }
 
+    /// Traits of source for walking
+    template <typename T>
+    struct WalkSource
+    { typedef T &Embed; };
+
+    /// Source for walking over data with whiteouts
     template <typename Base>
     struct Subtract
     {
-        Base &base;
-        WhiteoutDB &whiteout; // subset of base
+        typename WalkSource<Base>::Embed base;
+        typename WalkSource<WhiteoutDB>::Embed whiteout; // subset of base
+
+        class Walker;
     };
 
     template <typename Base>
-    class Walker<Subtract<Base>>
+    class Subtract<Base>::Walker
     {
-        Walker<Base> w_base;
-        Walker<WhiteoutDB> w_whiteout;
+        typename Base::Walker w_base;
+        typename WhiteoutDB::Walker w_whiteout;
 
         void SkipNext()
         {
@@ -132,6 +140,10 @@ namespace leveldb
             if (Valid()) SkipPrev();
         }
     };
+
+    template <typename T>
+    struct WalkSource<Subtract<T>>
+    { typedef Subtract<T> Embed; };
 
     template <typename Base>
     constexpr Subtract<Base> subtract(Base &base, WhiteoutDB &whiteout)

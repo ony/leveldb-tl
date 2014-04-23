@@ -52,7 +52,7 @@ namespace leveldb
             return Status::OK();
         }
 
-        class IteratorType
+        class Walker
         {
             WhiteoutDB &rows;
             mutable WhiteoutDB::iterator impl;
@@ -83,7 +83,7 @@ namespace leveldb
             { impl = rows.lower_bound(target); }
 
         public:
-            IteratorType(WhiteoutDB &origin) : rows(origin), rev(origin.rev)
+            Walker(WhiteoutDB &origin) : rows(origin), rev(origin.rev)
             {}
 
             bool Valid() const { Sync(); return impl != rows.end(); Sync(true); }

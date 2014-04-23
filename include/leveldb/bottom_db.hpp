@@ -49,16 +49,4 @@ namespace leveldb
         Status Write(WriteBatch &updates)
         { return (*this)->Write(writeOptions, &updates); }
     };
-
-    // handle BottomDB as an AnyDB
-    template <>
-    struct Walker<BottomDB> : Walker<AnyDB>
-    {
-        // gcc 4.8: using Walker<AnyDB>::Walker;
-
-        template <typename... Args>
-        Walker(Args &&... args) :
-            Walker<AnyDB>(std::forward<Args>(args)...)
-        {}
-    };
 }
