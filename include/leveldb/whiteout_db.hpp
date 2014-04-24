@@ -19,13 +19,12 @@ namespace leveldb
         { return find(key.ToString()) != end(); }
 
         template <typename... Args>
-        Status Insert(Args &&... args)
+        bool Insert(Args &&... args)
         {
-            (void) emplace(std::forward<Args>(args)...);
-            return Status::OK();
+            return emplace(std::forward<Args>(args)...).second;
         }
 
-        Status Insert(const Slice &key)
+        bool Insert(const Slice &key)
         { return Insert(key.data(), key.size()); }
 
         template <typename... Args>

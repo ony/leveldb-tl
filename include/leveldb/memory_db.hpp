@@ -15,6 +15,8 @@ namespace leveldb
     public:
         using map::map;
 
+        ~MemoryDB() noexcept override = default;
+
         using map::size;
         using map::begin;
         using map::end;
