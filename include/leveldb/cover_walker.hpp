@@ -67,7 +67,11 @@ namespace leveldb
         Walker(Cover<Base, Overlay> op) :
             i(op.base),
             j(op.overlay)
-        {}
+        {
+            // ensure that both iterators are initialized so notification won't
+            // hurt us
+            SeekToFirst();
+        }
 
         bool Valid() const { return useOverlay() ? j.Valid() : i.Valid(); }
         Slice key() const { return useOverlay() ? j.key() : i.key(); }
@@ -161,6 +165,77 @@ namespace leveldb
                 break;
             }
             Activate(false);
+        }
+
+    protected:
+        void overlayPut(const Slice &key)
+        {
+            if (!Valid()) return; // do not bother
+            switch (state)
+            {
+            case FwdLeft:
+                // check range
+                switch (compare(i.key(), key))
+                {
+                case Order::EQ:
+                    j.Seek(key);
+                    state = Both;
+                    return;
+                case Order::GT: return;
+                case Order::LT: break;
+
+                }
+                if (j.Valid() && j.key().compare(key) < 0) return;
+                // ok this is scase when key inserted between current base and
+                // next cover
+                j.Seek(key);
+                break;
+            case RevLeft:
+                switch (compare(i.key(), key))
+                {
+                case Order::EQ:
+                    j.Seek(key);
+                    state = Both;
+                    return;
+                case Order::LT: return;
+                case Order::GT: break;
+                }
+                if (j.Valid() && j.key().compare(key) > 0) return;
+                j.Seek(key); // exact match so no need to do Prev()
+                break;
+            case Both:
+            case RevRight:
+            case FwdRight:
+                // our current value is from overaly
+                // no need to sync hidden
+                break;
+            }
+        }
+
+        void overlayDelete(const Slice &key)
+        {
+            if (!Valid()) return;
+            switch (state)
+            {
+            case FwdLeft:
+                // check if we already pointing to this record
+                if (!j.Valid() || j.key().compare(key) != 0) return;
+                j.Seek(key); // we know that this record exists
+                j.Next();
+                break;
+            case RevLeft:
+                if (!j.Valid() || j.key().compare(key) != 0) return;
+                j.Seek(key);
+                j.Prev();
+                break;
+            case Both:
+            case RevRight:
+            case FwdRight:
+                // even if we point to record that is about to be deleted we
+                // shouldn't care since client is responsible for moving away
+                // from ghost records
+                break;
+            }
         }
     };
 

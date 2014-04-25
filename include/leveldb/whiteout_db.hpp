@@ -26,13 +26,12 @@ namespace leveldb
         bool Check(const Slice &key)
         { return find(key.ToString()) != end(); }
 
-        Status Insert(std::string &&key)
+        bool Insert(std::string &&key)
         {
-            (void) insert(std::forward<std::string>(key));
-            return Status::OK();
+            return insert(std::forward<std::string>(key)).second;
         }
 
-        Status Insert(const Slice &key)
+        bool Insert(const Slice &key)
         { return Insert(key.ToString()); }
 
         template <typename... Args>
@@ -89,7 +88,7 @@ namespace leveldb
             Walker(WhiteoutDB &origin) : rows(origin), rev(origin.rev)
             {}
 
-            bool Valid() const { return impl != rows.end(); }
+            bool Valid() const { return rev == rows.rev && impl != rows.end(); }
 
             void SeekToFirst() { impl = rows.begin(); Synced(); }
             void SeekToLast() { impl = rows.end(); if (impl != rows.begin()) --impl; Synced(); }
