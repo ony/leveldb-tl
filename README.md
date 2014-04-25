@@ -19,6 +19,10 @@ Goals to stick with
 - extreme fusion between layers to give a chance for compiler optimizer
 - minimize using of ref/ptr that leads outside of this library
 
+Notes for development
+---------------------
+- tests should be run under valgrind also
+
 Credits
 -------
 Inspired by https://github.com/feniksa/ldblayer

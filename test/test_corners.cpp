@@ -144,6 +144,52 @@ TEST(TestTxnIterator, txn_walk_deleted_next_delete)
     EXPECT_FALSE( w.Valid() ) << "Still have key " << PrintToString(w.key());
 }
 
+TEST(TestTxnIterator, txn_walk_deleted_next_dummy_delete)
+{
+    leveldb::MemoryDB mem {
+        { "a", "2" },
+        { "c", "3" },
+    };
+
+    auto txn = leveldb::transaction(mem);
+
+    std::string v;
+
+    auto w = leveldb::walker(txn);
+    w.SeekToFirst();
+
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "a", w.key() );
+
+    EXPECT_OK( txn.Delete("b") );
+    EXPECT_STATUS( NotFound, txn.Get("b", v) );
+    EXPECT_STATUS( NotFound, mem.Get("b", v) );
+
+    w.SeekToFirst();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "2", w.value() );
+
+    EXPECT_OK( txn.Put("b", "4") );
+
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "2", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "b", w.key() );
+    EXPECT_EQ( "4", w.value() );
+
+    w.Next();
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+
+    w.Next();
+    EXPECT_FALSE( w.Valid() ) << "Still have key " << PrintToString(w.key());
+}
+
 
 TEST(TestTxnIterator, txn_walk_deleted)
 {

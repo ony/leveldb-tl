@@ -81,7 +81,7 @@ namespace leveldb
             Walker(WhiteoutDB &origin) : rows(origin), rev(origin.rev)
             {}
 
-            bool Valid() const { return impl != rows.end(); }
+            bool Valid() const { return rev == rows.rev && impl != rows.end(); }
 
             void SeekToFirst() { impl = rows.begin(); Synced(); }
             void SeekToLast() { impl = rows.end(); if (impl != rows.begin()) --impl; Synced(); }
