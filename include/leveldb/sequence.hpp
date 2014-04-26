@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 #include <leveldb/any_db.hpp>
 
 namespace leveldb
@@ -42,6 +44,9 @@ namespace leveldb
         { ++value; return *this; }
         host_order<T> &operator--()
         { --value; return *this; }
+
+        static constexpr host_order<T> max()
+        { return std::numeric_limits<T>::max(); }
 
         // arithmetic in network order
         host_order<T> &next_net()
@@ -107,15 +112,23 @@ namespace leveldb
         template <typename T1>
         Status Next(T1 &value)
         {
-            assert(next <= allocated);
+            assert( allocated == 0 || next <= allocated );
 
-            if (next == allocated)
+            if (allocated == 0) // noting allocated yet
             {
                 Status s = AllocPage();
                 if (!s.ok()) return s;
             }
 
-            value = next++;
+            if (next == allocated)
+            {
+                value = next++;
+                (void) AllocPage(); // pre-allocate next page for next request
+            }
+            else
+            {
+                value = next++;
+            }
             return Status::OK();
         }
 
@@ -132,6 +145,7 @@ namespace leveldb
                 if (allocated == 0) // initial (need to load prev value)
                 {
                     allocated = v;
+                    if (allocated == 0) return Status::NotFound("sequence overflow");
                     next = allocated;
                 }
                 else if (allocated != host_order<T>{v})
@@ -147,7 +161,13 @@ namespace leveldb
                 return s;
             }
 
-            const host_order<T> nextAllocated = allocated + PAGE_SIZE;
+            const host_order<T> nextAllocated = std::min(size_t(allocated.max()), allocated + PAGE_SIZE);
+            if (nextAllocated == allocated) // overflow
+            {
+                (void) base.Put(key, host_order<T>{0}); // mark as overflow
+                allocated = 0;
+                return Status::NotFound("meet sequence overflow");
+            }
             s = base.Put(key, nextAllocated);
             if (s.ok()) allocated = nextAllocated;
             return s;

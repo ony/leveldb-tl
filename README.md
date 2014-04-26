@@ -21,7 +21,8 @@ Goals to stick with
 
 Notes for development
 ---------------------
-- tests should be run under valgrind also
+- tests should be run under valgrind also unless built with libasan (sanitizer
+  from gcc 4.8)
 
 Credits
 -------

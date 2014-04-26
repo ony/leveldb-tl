@@ -294,9 +294,7 @@ TEST(Simple, sequence)
     leveldb::MemoryDB db;
     short x;
 
-    vector<short> e;
-
-    leveldb::Sequence<short> a(db, "x");
+    leveldb::Sequence<unsigned short> a(db, "x");
     ASSERT_OK( a.Next(x) );
     EXPECT_EQ( 0, x );
     ASSERT_OK( a.Next(x) );
@@ -305,8 +303,8 @@ TEST(Simple, sequence)
 
     string v;
 
-    leveldb::Sequence<short> z(std::move(a));
-    leveldb::Sequence<short> b(db, "x");
+    leveldb::Sequence<unsigned short> z(std::move(a));
+    leveldb::Sequence<unsigned short> b(db, "x");
     EXPECT_OK( db.Get("x", v) );
     ASSERT_OK( b.Next(x) );
     EXPECT_EQ( 2, x ) << "In db " << PrintToString(v);

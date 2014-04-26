@@ -1,5 +1,6 @@
 #include "leveldb/memory_db.hpp"
 #include "leveldb/whiteout_db.hpp"
+#include "leveldb/sandwich_db.hpp"
 #include "leveldb/txn_db.hpp"
 #include "leveldb/walker.hpp"
 
@@ -311,4 +312,51 @@ TEST(TestTxnIterator, txn_insert_next)
     w.Next();
     ASSERT_TRUE( w.Valid() );
     EXPECT_EQ( "d", w.key() );
+}
+
+TEST(TestSequence, sequence_overflow)
+{
+    leveldb::MemoryDB db;
+    leveldb::Sequence<unsigned char> seq {db, "x"};
+    for(size_t n = 0; n < 0x100; ++n)
+    {
+        unsigned char x;
+        ASSERT_OK( seq.Next(x) );
+        EXPECT_EQ( n, x );
+    }
+    unsigned char overflow;
+    EXPECT_STATUS( NotFound, seq.Next(overflow) );
+}
+
+TEST(TestSandwichIterator, stuff_sandwich_to_overflow)
+{
+    leveldb::SandwichDB<leveldb::MemoryDB, unsigned char> sdb;
+    for(size_t n = 0; n < 0xff; ++n) // one part reserved for meta
+    {
+        SCOPED_TRACE("n=" + to_string(n));
+        decltype(sdb)::Cookie cookie;
+        ASSERT_OK( sdb.cook(to_string(n), cookie) )
+            << "Failed to allocate cookie #" << n;
+        auto db = sdb.use(cookie);
+        ASSERT_OK( db.Put("a", "first") );
+        ASSERT_OK( db.Put("b", "second") );
+        ASSERT_OK( db.Put("z", "last") );
+
+        auto w = leveldb::walker(db);
+
+        w.SeekToFirst();
+        ASSERT_TRUE( w.Valid() );
+        EXPECT_EQ( "a", w.key() );
+
+        w.Next();
+        ASSERT_TRUE( w.Valid() );
+        EXPECT_EQ( "b", w.key() );
+
+        w.SeekToLast();
+        ASSERT_TRUE( w.Valid() );
+        EXPECT_EQ( "z", w.key() );
+    }
+    decltype(sdb)::Cookie cookie;
+    ASSERT_STATUS( NotFound, sdb.cook("overflow", cookie) )
+        << "Allocated overflow as " << PrintToString(cookie);
 }

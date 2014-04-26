@@ -187,12 +187,19 @@ namespace leveldb
         void SeekToLast()
         {
             auto p = prefix;
-            p.next_net();;
-            impl.Seek(p);
-            if (impl.Valid())
-            { impl.Prev(); }
+            if (p == p.max())
+            {
+                impl.SeekToLast();
+            }
             else
-            { impl.SeekToLast(); }
+            {
+                p.next_net();;
+                impl.Seek(p);
+                if (impl.Valid())
+                { impl.Prev(); }
+                else
+                { impl.SeekToLast(); }
+            }
         }
         void Next() { impl.Next(); }
         void Prev() { impl.Prev(); }
