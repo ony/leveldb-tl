@@ -89,15 +89,16 @@ namespace leveldb
             // re-sync with container if needed
             bool Sync()
             {
-                if (rev != rows->rev)
-                {
-                    rev = rows->rev;
-                    // need to re-align on access if applicable
-                    if (Valid())
-                    { SeekImpl(savepoint); }
-                    return true;
-                }
-                return false;
+                if (rev == rows->rev) return false;
+                rev = rows->rev;
+                if (!Valid()) return true; // invalid position already re-synced
+                // need to re-align
+                SeekImpl(savepoint);
+                // this might look a bit complicated but in fact we return true
+                // when if we synced to some other record (even if it is wrong)
+                // that is not the last one we've been pointing too
+                // (ex. because of delete).
+                return !Valid() || savepoint != impl->first;
             }
 
             void Synced()
