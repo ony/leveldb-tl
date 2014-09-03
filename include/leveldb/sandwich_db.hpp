@@ -125,27 +125,30 @@ namespace leveldb
         Status Get(const Slice &key, std::string &value) noexcept override
         {
             assert( Valid() );
-            char buf[prefix.size() + key.size()];
+            const size_t buf_size = prefix.size() + key.size();
+            char buf[buf_size];
             (void) memcpy(buf, prefix.data(), prefix.size());
             (void) memcpy(buf + sizeof(prefix), key.data(), key.size());
-            return sandwich->base.Get(Slice(buf, sizeof(buf)), value);
+            return sandwich->base.Get(Slice(buf, buf_size), value);
         }
 
         Status Put(const Slice &key, const Slice &value) noexcept override
         {
             assert( Valid() );
-            char buf[prefix.size() + key.size()];
+            const size_t buf_size = prefix.size() + key.size();
+            char buf[buf_size];
             (void) memcpy(buf, prefix.data(), prefix.size());
             (void) memcpy(buf + prefix.size(), key.data(), key.size());
-            return sandwich->base.Put(Slice(buf, sizeof(buf)), value);
+            return sandwich->base.Put(Slice(buf, buf_size), value);
         }
         Status Delete(const Slice &key) noexcept override
         {
             assert( Valid() );
+            const size_t buf_size = prefix.size() + key.size();
             char buf[prefix.size() + key.size()];
             (void) memcpy(buf, prefix.data(), prefix.size());
             (void) memcpy(buf + prefix.size(), key.data(), key.size());
-            return sandwich->base.Delete(Slice(buf, sizeof(buf)));
+            return sandwich->base.Delete(Slice(buf, buf_size));
         }
 
         class Walker;
@@ -206,10 +209,11 @@ namespace leveldb
 
         void Seek(const Slice &target)
         {
-            char buf[prefix.size() + target.size()];
+            const size_t buf_size = prefix.size() + target.size();
+            char buf[buf_size];
             (void) memcpy(buf, prefix.data(), prefix.size());
             (void) memcpy(buf + sizeof(prefix), target.data(), target.size());
-            impl.Seek(Slice(buf, sizeof(buf)));
+            impl.Seek(Slice(buf, buf_size));
         }
     };
 }
