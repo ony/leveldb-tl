@@ -24,6 +24,9 @@ include_directories(${LevelDB_INCLUDE_DIRS})
 
 install(DIRECTORY include/ DESTINATION include)
 
+add_executable(mksandwich mksandwich.cpp)
+target_link_libraries(mksandwich ${GTEST_BOTH_LIBRARIES} ${LevelDB_LIBRARIES})
+
 set(ctest_args --output-on-failure)
 
 add_custom_target(depend-check)

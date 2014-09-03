@@ -314,6 +314,36 @@ TEST(TestTxnIterator, txn_insert_next)
     EXPECT_EQ( "d", w.key() );
 }
 
+// check how iterator moves through entry when some other record were deleted
+TEST(TestMemoryIterator, walk_from_existing_after_delete)
+{
+    leveldb::MemoryDB mem {
+        { "a", "1" },
+        { "b", "2" },
+        { "c", "3" },
+    };
+
+    std::string v;
+
+    auto w = leveldb::walker(mem);
+
+    w.SeekToFirst();
+
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "a", w.key() );
+    EXPECT_EQ( "1", w.value() );
+
+    w.Next();
+
+    EXPECT_OK( mem.Delete("a") );
+
+    w.Next();
+
+    ASSERT_TRUE( w.Valid() );
+    EXPECT_EQ( "c", w.key() );
+    EXPECT_EQ( "3", w.value() );
+}
+
 TEST(TestSequence, sequence_overflow)
 {
     leveldb::MemoryDB db;
