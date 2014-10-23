@@ -46,6 +46,7 @@ namespace leveldb
         using map::size;
         using map::begin;
         using map::end;
+        using map::empty;
 
         Status Get(const Slice &key, std::string &value) noexcept override
         {

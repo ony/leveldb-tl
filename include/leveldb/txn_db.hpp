@@ -133,6 +133,8 @@ namespace leveldb
 
         Status commit()
         {
+            if (whiteout.empty() || overlay.empty()) return Status::OK();
+
             WriteBatch batch;
             for (auto k : whiteout) batch.Delete(k);
             for (auto kv : overlay) batch.Put(kv.first, kv.second);
