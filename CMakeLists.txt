@@ -36,7 +36,7 @@ find_package(GTest REQUIRED)
 find_package(LevelDB REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wconversion -Werror")
 
 include_directories(include)
 include_directories(${LevelDB_INCLUDE_DIRS})
