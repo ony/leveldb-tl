@@ -99,7 +99,7 @@ namespace leveldb
         }
     };
 
-    template <typename Base, typename Prefix = short>
+    template <typename Base, typename Prefix>
     class SandwichDB<Base, Prefix>::Part final : public AnyDB
     {
         SandwichDB *sandwich;
@@ -162,7 +162,7 @@ namespace leveldb
         }
     };
 
-    template <typename Base, typename Prefix = short>
+    template <typename Base, typename Prefix>
     class SandwichDB<Base, Prefix>::Part::Walker
     {
         host_order<Prefix> prefix;
