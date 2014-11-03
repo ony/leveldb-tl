@@ -66,7 +66,7 @@ namespace leveldb
         { return s.size() != size(); }
     };
 
-    template <typename T, size_t PAGE_SIZE = 10>
+    template <typename T, T PAGE_SIZE = 10>
     class Sequence
     {
         AnyDB &base;
@@ -161,7 +161,9 @@ namespace leveldb
                 return s;
             }
 
-            const host_order<T> nextAllocated = std::min(size_t(allocated.max()), allocated + PAGE_SIZE);
+            // to avoid overflow we'll use:
+            // min(max, x + p) ~ min(max - p, x) + p
+            const host_order<T> nextAllocated = T(std::min(T(allocated.max() - PAGE_SIZE), T(allocated)) + PAGE_SIZE);
             if (nextAllocated == allocated) // overflow
             {
                 (void) base.Put(key, host_order<T>{0}); // mark as overflow
