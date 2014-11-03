@@ -19,7 +19,9 @@ namespace leveldb
         Sequence<Prefix> seq { meta, Slice() };
 
     public:
-        SandwichDB(SandwichDB<Base,Prefix> &&) = default;
+        SandwichDB(SandwichDB<Base,Prefix> &&orig) :
+            base(std::move(orig.base))
+        {}
 
         template <typename... Args>
         SandwichDB(Args &&... args) : base(std::forward<Args>(args)...)

@@ -14,6 +14,7 @@ namespace leveldb
 
         using set::begin;
         using set::end;
+        using set::empty;
 
         bool Check(const Slice &key)
         { return find(key.ToString()) != end(); }

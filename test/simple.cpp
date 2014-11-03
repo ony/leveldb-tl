@@ -329,6 +329,12 @@ TEST(Simple, host_order)
     EXPECT_EQ( "\x42\x44", leveldb::Slice(x) );
 }
 
+TEST(Simple, sandwich_move_issue14)
+{
+    auto db = std::move(leveldb::SandwichDB<leveldb::MemoryDB> {});
+    (void) db.use("alpha");
+}
+
 TEST(Simple, sandwich)
 {
     leveldb::SandwichDB<leveldb::MemoryDB> sdb;
