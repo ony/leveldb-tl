@@ -28,12 +28,16 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules" ${CMAKE_MODULE_PATH})
 
 option(FAST_CHECK "Run tests in a faster manner" ON)
 option(BUILD_DOCUMENTATION "Build the documentation (Doxygen)." OFF)
+option(BUILD_TESTING "Build tests" OFF)
+option(BUILD_MKSANDWICH "Build sandwich converting tool" ON)
 
 include(CTest)
 include(ProcessorCount)
 
-find_package(GTest REQUIRED)
 find_package(LevelDB REQUIRED)
+if (BUILD_TESTING OR BUILD_MKSANDWICH)
+    find_package(GTest REQUIRED)
+endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wconversion -Werror")
@@ -43,8 +47,10 @@ include_directories(${LevelDB_INCLUDE_DIRS})
 
 install(DIRECTORY include/ DESTINATION include)
 
-add_executable(mksandwich mksandwich.cpp)
-target_link_libraries(mksandwich ${GTEST_BOTH_LIBRARIES} ${LevelDB_LIBRARIES})
+if (BUILD_MKSANDWICH)
+    add_executable(mksandwich mksandwich.cpp)
+    target_link_libraries(mksandwich ${GTEST_BOTH_LIBRARIES} ${LevelDB_LIBRARIES})
+endif()
 
 set(ctest_args --output-on-failure)
 
