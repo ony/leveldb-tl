@@ -1,6 +1,9 @@
 #pragma once
 
+#include <functional>
+
 #include <leveldb/slice.h>
+#include <leveldb/status.h>
 
 #include <gtest/gtest.h>
 
